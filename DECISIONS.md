@@ -216,3 +216,15 @@ Alternatives considered:
   - Dash by Plotly — rejected because Dash has a steeper callback learning curve and introduces Plotly as an extra dependency.
 
 Why this one: Streamlit allows writing pure Python code for responsive web layouts, natively integrates with pandas DataFrames, renders matplotlib charts effortlessly, and provides reactive rerun controls for live experiment execution.
+
+---
+
+## [Phase 5] Offline PCAP file parsing via Scapy (over live automated `tshark` / `pcap` capture)
+
+Decision: `analyzer/pcap_parser.py` parses exported `.pcap` files using Scapy offline, rather than attempting programmatic live packet capture during experiment runs via `tshark` or `pyshark`.
+
+Alternatives considered:
+  - Live capture using `tshark` / `dumpcap` subprocesses — rejected because `tshark` requires system superuser/root privileges (`sudo` or administrative packet capture permissions on macOS/Linux), which creates environment dependency issues and OS permission barriers.
+  - Live Python sniffing via Scapy (`sniff()`) — rejected because live packet sniffing on loopback interface (`lo0` / `127.0.0.1`) requires elevated root permissions and introduces thread synchronization race conditions alongside the client/server traffic.
+
+Why this one: Offline parsing decouples packet capturing from analysis. Standard Wireshark GUI capture followed by Scapy parsing works cross-platform without root privileges, mirroring real-world network forensics workflows.

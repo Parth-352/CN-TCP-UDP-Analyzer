@@ -60,10 +60,23 @@
 - ✅ Installed `streamlit` and `matplotlib` dependencies
 - ✅ Verified `dashboard/app.py` compiles cleanly and renders metrics
 
-## What's Next — Phase 5
-- Create Wireshark PCAP parser script (`analyzer/pcap_parser.py`) using Scapy
-- Parse `.pcap` files exported from Wireshark GUI
-- Extract packet metadata: Src/Dst IP, Src/Dst Port, Packet Size, TCP Flags / UDP Markers, Sequence Numbers, Timestamps
-- Print analysis summary: TCP handshake detection (SYN → SYN-ACK → ACK), packet counts, average sizes
+## Phase 5 — Wireshark / Packet Analysis ✅
+- Created Scapy-based PCAP parser (`analyzer/pcap_parser.py`):
+  - Filters and parses `.pcap` / `.pcapng` files exported from Wireshark for configured server port
+  - Extracts per-packet metadata: Protocol, Src/Dst IP & Port, Packet Size, TCP Flags, Seq/Ack numbers, UDP lengths
+  - Automatically detects full TCP 3-way handshakes (`SYN` → `SYN/ACK` → `ACK`)
+  - Displays summary statistics: Total TCP/UDP packet counts, average packet sizes, handshake counts
+  - Built-in `--generate-sample` synthetic PCAP generator for testing and standalone demonstration
+- ✅ Installed `scapy` dependency
+- ✅ Tested parsing on sample PCAP: detected TCP handshakes and UDP datagrams accurately
+
+## What's Next — Phase 6
+- Build rule-based protocol recommendation engine (`recommender/profiles.py` & `recommender/engine.py`):
+  - Define 6 application profiles (Gaming, VideoCall, Streaming, FileTransfer, WebAPI, IoT) with weighted priorities
+  - Implement rule-based scoring function comparing TCP vs UDP scores against metric thresholds
+  - Return recommended protocol, normalized confidence %, and explicit human-readable reasons
+- Create unit tests (`tests/test_recommender.py`) for profile recommendations
+- Integrate recommender UI section into Streamlit dashboard (`dashboard/app.py`)
+
 
 
