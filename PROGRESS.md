@@ -70,13 +70,21 @@
 - ✅ Installed `scapy` dependency
 - ✅ Tested parsing on sample PCAP: detected TCP handshakes and UDP datagrams accurately
 
-## What's Next — Phase 6
-- Build rule-based protocol recommendation engine (`recommender/profiles.py` & `recommender/engine.py`):
-  - Define 6 application profiles (Gaming, VideoCall, Streaming, FileTransfer, WebAPI, IoT) with weighted priorities
-  - Implement rule-based scoring function comparing TCP vs UDP scores against metric thresholds
-  - Return recommended protocol, normalized confidence %, and explicit human-readable reasons
-- Create unit tests (`tests/test_recommender.py`) for profile recommendations
-- Integrate recommender UI section into Streamlit dashboard (`dashboard/app.py`)
+## Phase 6 — Protocol Recommendation Engine ✅
+- Created workload profiles (`recommender/profiles.py`):
+  - Defined 6 application profiles (Gaming, VideoCall, Streaming, FileTransfer, WebAPI, IoT) with 4 weighted sensitivities: latency, jitter, loss tolerance, reliability
+- Created recommendation engine (`recommender/engine.py`):
+  - Implemented `recommend(metrics, profile)` with weighted scoring (0 to 100) for TCP and UDP
+  - Computed normalized confidence % (50% to 99%) and human-readable decision reasons
+- Created unit tests (`tests/test_recommender.py`):
+  - 6 unit tests covering all profile scenarios, confidence bounds, and loss adaptation
+  - ✅ All 12 project unit tests pass
+- Integrated Recommender into Streamlit UI (`dashboard/app.py`):
+  - Added "🎯 Smart Protocol Recommender" tab with profile selection, weight metrics, score breakdown, and decision explanations
 
-
-
+## What's Next — Phase 7
+- Network simulation & impairment testing (`simulator/impair.py`):
+  - Simulate network impairments (artificial delay, packet loss drops) using Python socket wrappers or `tc` / `netem` presets
+  - Test TCP vs UDP behavior under degraded network conditions
+- Comprehensive project documentation (`README.md`):
+  - Setup instructions, architecture overview, CLI commands, Streamlit usage, and Wireshark analysis guide

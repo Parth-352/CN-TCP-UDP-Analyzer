@@ -228,3 +228,16 @@ Alternatives considered:
   - Live Python sniffing via Scapy (`sniff()`) — rejected because live packet sniffing on loopback interface (`lo0` / `127.0.0.1`) requires elevated root permissions and introduces thread synchronization race conditions alongside the client/server traffic.
 
 Why this one: Offline parsing decouples packet capturing from analysis. Standard Wireshark GUI capture followed by Scapy parsing works cross-platform without root privileges, mirroring real-world network forensics workflows.
+
+---
+
+## [Phase 6] Weighted multi-criteria rule-based recommendation engine
+
+Decision: Build a weighted scoring recommendation engine (`recommender/engine.py`) using 6 normalized application workload profiles (`recommender/profiles.py`) comparing requirement weights (latency, jitter, loss tolerance, reliability) against measured empirical metrics.
+
+Alternatives considered:
+  - Machine learning classification model (Random Forest / Logistic Regression) — rejected because ML models require thousands of labeled dataset samples, operate as black boxes lacking clear human explanations, and introduce complex dependencies (scikit-learn).
+  - Hardcoded if/else protocol branching — rejected because binary logic cannot express confidence percentages or continuous sensitivity trade-offs across multiple metrics simultaneously.
+
+Why this one: A weighted multi-criteria scoring algorithm is transparent, deterministic, fully explainable with explicit decision reasons, lightweight, and perfectly suited for network protocol selection.
+

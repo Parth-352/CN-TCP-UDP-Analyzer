@@ -4,7 +4,8 @@ NetPulse Streamlit Dashboard.
 Displays TCP vs UDP performance metrics:
 1. Per-packet size side-by-side metric comparison table
 2. 5 Matplotlib visualization charts (Transmission Time, Throughput, RTT, Loss, Summary Grid)
-3. Interactive sidebar to trigger background experiment runs
+3. Smart Protocol Recommender engine tab
+4. Interactive sidebar to trigger background experiment runs
 """
 
 import os
@@ -14,8 +15,13 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import streamlit as st
 
-# Path setup
+# Project root path setup
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, ROOT)
+
+from recommender.profiles import PROFILES
+from recommender.engine import recommend
+
 CSV_PATH = os.path.join(ROOT, "data", "results.csv")
 RUNNER_PATH = os.path.join(ROOT, "run_experiments.py")
 
@@ -27,7 +33,7 @@ st.set_page_config(
 )
 
 st.title("⚡ NetPulse — TCP vs UDP Performance Analyzer")
-st.caption("Real-Time Application-Layer Transport Protocol Metrics")
+st.caption("Real-Time Application-Layer Transport Protocol Metrics & Smart Recommendation Engine")
 
 
 def load_data():
@@ -94,20 +100,22 @@ st.sidebar.info(
 # ---------------------------------------------------------
 df = load_data()
 
-if df is None:
-    st.warning("⚠️ No experiment data found (`data/results.csv` missing or empty).")
-    st.info("Click **'🚀 Run Experiments'** in the sidebar to execute the benchmark suite.")
-else:
-    # Most recent run data per (Protocol, PacketSize) pair
-    latest_df = df.groupby(["Protocol", "PacketSize"], as_index=False).last()
+tab1, tab2, tab3 = st.tabs([
+    "📊 Metric Tables & Comparison",
+    "📈 Performance Graphs",
+    "🎯 Smart Protocol Recommender",
+])
 
-    tab1, tab2 = st.tabs(["📊 Metric Tables & Comparison", "📈 Performance Graphs"])
-
-    # ---------------------------------------------------------
-    # TAB 1: Comparison Table View
-    # ---------------------------------------------------------
-    with tab1:
+# ---------------------------------------------------------
+# TAB 1: Comparison Table View
+# ---------------------------------------------------------
+with tab1:
+    if df is None:
+        st.warning("⚠️ No experiment data found (`data/results.csv` missing or empty).")
+        st.info("Click **'🚀 Run Experiments'** in the sidebar to execute the benchmark suite.")
+    else:
         st.subheader("Protocol Metric Comparison")
+        latest_df = df.groupby(["Protocol", "PacketSize"], as_index=False).last()
 
         packet_sizes = sorted(latest_df["PacketSize"].unique())
         selected_size = st.selectbox(
@@ -154,13 +162,16 @@ else:
         st.markdown("### Raw Results Dataset")
         st.dataframe(df, use_container_width=True)
 
-    # ---------------------------------------------------------
-    # TAB 2: Graphs View (Matplotlib)
-    # ---------------------------------------------------------
-    with tab2:
+# ---------------------------------------------------------
+# TAB 2: Graphs View (Matplotlib)
+# ---------------------------------------------------------
+with tab2:
+    if df is None:
+        st.warning("⚠️ No experiment data available for graphing.")
+    else:
         st.subheader("Transport Protocol Visual Benchmarks")
+        latest_df = df.groupby(["Protocol", "PacketSize"], as_index=False).last()
 
-        # Separate TCP and UDP subsets
         tcp_df = latest_df[latest_df["Protocol"] == "TCP"].sort_values("PacketSize")
         udp_df = latest_df[latest_df["Protocol"] == "UDP"].sort_values("PacketSize")
 
@@ -267,3 +278,75 @@ else:
 
         plt.tight_layout()
         st.pyplot(fig5)
+
+# ---------------------------------------------------------
+# TAB 3: Protocol Recommendation Engine
+# ---------------------------------------------------------
+with tab3:
+    st.subheader("🎯 Rule-Based Protocol Recommendation Engine")
+    st.write(
+        "Select an application workload profile to analyze requirement sensitivity "
+        "and get an automated transport protocol recommendation."
+    )
+
+    profile_options = {key: val["name"] for key, val in PROFILES.items()}
+    selected_key = st.selectbox(
+        "Choose Application Workload Profile:",
+        options=list(profile_options.keys()),
+        format_func=lambda k: f"{profile_options[k]} ({k})",
+    )
+
+    profile = PROFILES[selected_key]
+
+    st.markdown(f"**Description:** {profile['description']}")
+
+    # Display weights breakdown
+    w = profile["weights"]
+    w_col1, w_col2, w_col3, w_col4 = st.columns(4)
+    w_col1.metric("Latency Sensitivity", f"{w['latency_sensitivity'] * 100:.0f}%")
+    w_col2.metric("Jitter Sensitivity", f"{w['jitter_sensitivity'] * 100:.0f}%")
+    w_col3.metric("Loss Tolerance", f"{w['loss_tolerance'] * 100:.0f}%")
+    w_col4.metric("Reliability Need", f"{w['reliability_need'] * 100:.0f}%")
+
+    st.markdown("---")
+
+    # Extract metrics if available
+    metrics = {}
+    if df is not None:
+        latest_df = df.groupby(["Protocol", "PacketSize"], as_index=False).last()
+        tcp_df = latest_df[latest_df["Protocol"] == "TCP"]
+        udp_df = latest_df[latest_df["Protocol"] == "UDP"]
+
+        if not tcp_df.empty and not udp_df.empty:
+            metrics["TCP"] = {
+                "avg_rtt_ms": tcp_df["AvgRTT"].mean(),
+                "packet_loss_pct": tcp_df["PacketLoss"].mean(),
+                "jitter_ms": tcp_df["Jitter"].mean(),
+            }
+            metrics["UDP"] = {
+                "avg_rtt_ms": udp_df["AvgRTT"].mean(),
+                "packet_loss_pct": udp_df["PacketLoss"].mean(),
+                "jitter_ms": udp_df["Jitter"].mean(),
+            }
+
+    rec = recommend(metrics, profile)
+
+    # Recommendation Card Display
+    st.markdown("### Recommendation Summary")
+
+    if rec["protocol"] == "UDP":
+        st.success(
+            f"⚡ Recommended Protocol: **UDP** (Confidence: **{rec['confidence_pct']}%**)"
+        )
+    else:
+        st.info(
+            f"🔒 Recommended Protocol: **TCP** (Confidence: **{rec['confidence_pct']}%**)"
+        )
+
+    score_col1, score_col2 = st.columns(2)
+    score_col1.metric("TCP Score", f"{rec['tcp_score']} / 100")
+    score_col2.metric("UDP Score", f"{rec['udp_score']} / 100")
+
+    st.markdown("#### Key Decision Factors:")
+    for reason in rec["reasons"]:
+        st.markdown(f"- {reason}")
