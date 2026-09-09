@@ -241,3 +241,16 @@ Alternatives considered:
 
 Why this one: A weighted multi-criteria scoring algorithm is transparent, deterministic, fully explainable with explicit decision reasons, lightweight, and perfectly suited for network protocol selection.
 
+---
+
+## [Phase 7] Comprehensive documentation & structured faculty presentation script
+
+Decision: Create `DEMO_GUIDE.md` as a dedicated faculty demonstration guide containing a 5-step presentation script, system architecture diagram, module workflows, cheat sheet, and faculty Q&A preparation.
+
+Alternatives considered:
+  - Markdown comments inside code files only — rejected because code comments don't provide an overall presentation narrative or oral defense script for faculty evaluation.
+  - Slide deck (PPTX/PDF) — rejected because plain Markdown is version-controlled directly in the git repository alongside source code.
+
+Why this one: A dedicated `DEMO_GUIDE.md` alongside a comprehensive `README.md` provides both technical documentation for code review and an execution script for live presentations.
+
+
