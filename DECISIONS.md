@@ -181,3 +181,25 @@ Alternatives considered:
 Why this one: Total-acked-over-wall-time is the standard goodput
 definition. It naturally accounts for lost packets (they don't count as
 acked bytes) and gives a single meaningful number for the whole test run.
+
+---
+
+## [Phase 3] CSV append mode for experiment data persistence
+
+Decision: Save experiment metrics to a flat CSV file (`data/results.csv`) in append mode, with a `--fresh` CLI flag to wipe and restart when needed.
+
+Alternatives considered:
+  - SQLite database — rejected because CSV files can be directly read by pandas, Excel, and Streamlit with zero query overhead, and flat storage is completely transparent for inspection.
+  - JSON / JSONL — rejected because tabular structures (equal row schemas) are less natural in JSON and CSV integrates directly with pandas plotting in Phase 4.
+
+Why this one: Flat CSV is lightweight, human-inspectable, directly compatible with pandas DataFrames, and easy to append to incrementally per run.
+
+## [Phase 3] Process-isolated server management via `subprocess.Popen`
+
+Decision: `run_experiments.py` launches a fresh server process (`tcp/server.py` or `udp/server.py`) using `subprocess.Popen` for each individual experiment run and explicitly terminates/kills it after the client finishes.
+
+Alternatives considered:
+  - Single long-running server in background — rejected because stale state, unread socket buffers, or dangling socket bindings from prior runs could corrupt subsequent experiment metrics.
+  - In-process threading (`threading.Thread`) — rejected because socket options and state within Python interpreter threads can leak across runs and Python's GIL could introduce unintended CPU contention between client and server threads on loopback.
+
+Why this one: Process isolation guarantees clean socket state, fresh memory, and reliable teardown for every single experiment iteration.

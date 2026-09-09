@@ -36,8 +36,19 @@
 - ✅ All 6 tests pass
 - ✅ Live tested TCP and UDP with metrics output on `127.0.0.1`
 
-## What's Next — Phase 3
-- Create `run_experiments.py` to loop over packet sizes and protocols
-- Save results to `data/results.csv` (append mode)
-- Add `--fresh` flag to wipe and re-run
-- Print summary table with pandas
+## Phase 3 — Automation & Bulk Experiments ✅
+- Created `run_experiments.py`:
+  - Automatically loops over packet sizes `[64, 256, 512, 1024]` and protocols `[tcp, udp]`
+  - Starts server as a clean process (`subprocess.Popen`), runs client, records metrics, terminates server
+  - Appends metrics to `data/results.csv`
+  - `--fresh` CLI flag wipes CSV before running
+  - Uses pandas to display a neat summary table after all runs complete
+- ✅ Tested full 8-experiment matrix (100 packets each, 800 packets total)
+- ✅ Results cleanly saved to `data/results.csv`
+
+## What's Next — Phase 4
+- Build interactive Streamlit dashboard (`dashboard/app.py`)
+- Display comparison summary tables
+- Plot interactive charts for Throughput vs Packet Size, Latency (RTT) vs Packet Size, Jitter vs Packet Size
+- Include protocol selection sidebar & metric filters
+
