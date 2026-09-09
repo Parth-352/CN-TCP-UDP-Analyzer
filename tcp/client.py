@@ -14,6 +14,7 @@ import yaml
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from protocol import build_packet, parse_header, HEADER_SIZE
+from metrics.engine import compute_metrics, print_metrics
 
 
 def load_config():
@@ -87,4 +88,6 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         pkt_size = int(sys.argv[1])
 
-    run_client(cfg["server_ip"], cfg["server_port"], cfg["num_packets"], pkt_size)
+    records = run_client(cfg["server_ip"], cfg["server_port"], cfg["num_packets"], pkt_size)
+    metrics = compute_metrics(records, packet_size=pkt_size)
+    print_metrics(metrics, protocol="TCP")

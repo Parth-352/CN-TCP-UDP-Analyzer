@@ -135,3 +135,49 @@ Alternatives considered:
 Why this one: Blocking per-packet with a timeout is the simplest correct
 approach — every packet is either echoed or timed out before the next one
 is sent, so sequence matching is trivial and loss is detected immediately.
+
+---
+
+## [Phase 2] Jitter formula: mean absolute difference of consecutive RTTs (RFC 3550-style)
+
+Decision: Jitter is computed as the mean of absolute differences between
+consecutive *successful* RTT samples: `mean(|RTT[i] - RTT[i-1]|)` for all
+i where both RTT[i] and RTT[i-1] exist.
+
+Alternatives considered:
+  - Standard deviation of all RTTs — rejected because stddev penalizes
+    consistently-high-but-stable latency the same as genuinely erratic
+    latency. A connection with RTT constantly at 50 ms has zero jitter
+    (stable), but nonzero stddev if mixed with other measurements. Jitter
+    should measure *variation between consecutive samples*, not spread.
+  - Max RTT − Min RTT (range) — rejected because a single outlier
+    dominates the result, making it unstable and uninformative. It also
+    ignores the temporal ordering of samples.
+  - Exponential moving average of differences (exact RFC 3550 formula) —
+    rejected because the full EWMA is designed for running computation
+    during a live RTP stream, not a post-hoc batch calculation on stored
+    records. The mean of absolute diffs gives the same insight for an
+    offline analysis.
+
+Why this one: Mean absolute consecutive difference captures how much RTT
+fluctuates from one packet to the next — exactly what "jitter" means in
+networking. It's simple, order-aware, outlier-resilient, and directly
+traceable to RFC 3550's definition.
+
+## [Phase 2] Throughput formula: total bytes acked / elapsed wall-clock time
+
+Decision: Throughput (Mbps) = `(packets_received × packet_size × 8) /
+(elapsed_seconds × 1,000,000)` where elapsed is measured from first send
+to last receive.
+
+Alternatives considered:
+  - Bytes sent (not acked) / time — rejected because for UDP, sent bytes
+    may never arrive. Throughput should reflect useful data transferred,
+    not data injected into the network.
+  - Per-packet throughput averaged — rejected because averaging per-packet
+    rates (bytes/RTT) doesn't account for pipeline effects or the overall
+    time structure of the test.
+
+Why this one: Total-acked-over-wall-time is the standard goodput
+definition. It naturally accounts for lost packets (they don't count as
+acked bytes) and gives a single meaningful number for the whole test run.

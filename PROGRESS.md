@@ -13,24 +13,31 @@
 - Created shared wire format module (`protocol.py`):
   - 16-byte header = 8-byte sequence number + 8-byte double timestamp
   - `build_packet(seq, size)` and `parse_header(data)` functions
-- TCP echo server (`tcp/server.py`):
-  - Accepts one connection, reads length-prefixed packets, echoes each back
-  - Closes cleanly on FIN
-- TCP echo client (`tcp/client.py`):
-  - Connects, sends N packets, waits for each echo before sending next
-  - Records `sent_at` and `received_at` per packet
-  - Accepts packet size as CLI argument
-- UDP echo server (`udp/server.py`):
-  - Binds and echoes every datagram back to sender's address
-  - Runs until Ctrl+C
-- UDP echo client (`udp/client.py`):
-  - Sends N datagrams, waits for each echo with configurable timeout
-  - Marks timed-out packets as lost (`received_at = None`)
-  - Reports lost sequence numbers at the end
-- ✅ Tested both on `127.0.0.1` — all packets echo correctly
+- TCP echo server/client (`tcp/server.py`, `tcp/client.py`)
+- UDP echo server/client (`udp/server.py`, `udp/client.py`)
+- Tested both on `127.0.0.1` — all packets echo correctly
 
-## What's Next — Phase 2
-- Create `metrics/engine.py` with `compute_metrics(records)`
-  - Transmission time, average RTT, throughput (Mbps), packet loss %, jitter
-- Wire metrics into TCP and UDP clients
-- Add unit tests with fabricated data (`tests/test_metrics.py`)
+## Phase 2 — Measurement Engine ✅
+- Created `metrics/engine.py` with `compute_metrics(records, packet_size)`:
+  - `transmission_time_sec` — wall-clock span from first to last send
+  - `avg_rtt_ms` — mean RTT of successfully echoed packets
+  - `throughput_mbps` — total bytes acked × 8 / elapsed time
+  - `packet_loss_pct` — fraction of packets with no echo
+  - `jitter_ms` — mean absolute difference of consecutive RTTs (RFC 3550-style)
+- Added `print_metrics()` helper for formatted console output
+- Wired metrics into both `tcp/client.py` and `udp/client.py`
+- Created `tests/test_metrics.py` with 6 unit tests:
+  - Basic no-loss (5 packets, known RTTs)
+  - With packet loss (2 of 5 lost)
+  - All packets lost
+  - Empty records
+  - Single packet
+  - Constant RTT → jitter = 0
+- ✅ All 6 tests pass
+- ✅ Live tested TCP and UDP with metrics output on `127.0.0.1`
+
+## What's Next — Phase 3
+- Create `run_experiments.py` to loop over packet sizes and protocols
+- Save results to `data/results.csv` (append mode)
+- Add `--fresh` flag to wipe and re-run
+- Print summary table with pandas
