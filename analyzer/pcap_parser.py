@@ -137,8 +137,9 @@ def parse_pcap_data(pcap_path: str, target_port: int):
 
         if pkt.haslayer(TCP):
             tcp = pkt[TCP]
-            if tcp.sport != target_port and tcp.dport != target_port:
-                continue
+            if target_port and target_port > 0:
+                if tcp.sport != target_port and tcp.dport != target_port:
+                    continue
 
             tcp_count += 1
             pkt_size = len(pkt)
@@ -167,8 +168,9 @@ def parse_pcap_data(pcap_path: str, target_port: int):
 
         elif pkt.haslayer(UDP):
             udp = pkt[UDP]
-            if udp.sport != target_port and udp.dport != target_port:
-                continue
+            if target_port and target_port > 0:
+                if udp.sport != target_port and udp.dport != target_port:
+                    continue
 
             udp_count += 1
             pkt_size = len(pkt)

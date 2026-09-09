@@ -363,26 +363,58 @@ with tab4:
     st.caption("Offline Scapy-based Packet Capture Parsing & TCP 3-Way Handshake Detection")
 
     cfg = load_config()
-    target_port = cfg.get("server_port", 5000)
+    default_port = cfg.get("server_port", 5000)
 
-    btn_col1, btn_col2 = st.columns([1, 2])
-    with btn_col1:
-        if st.button("⚡ Generate & Load Sample PCAP", use_container_width=True):
-            generate_sample_pcap(SAMPLE_PCAP_PATH, target_port)
+    # Controls Layout: Upload & Sample Generator & Port Filter
+    ctrl_col1, ctrl_col2, ctrl_col3 = st.columns([2, 1, 1])
+
+    with ctrl_col1:
+        uploaded_pcap = st.file_uploader(
+            "📂 Upload Custom PCAP File (.pcap, .pcapng)",
+            type=["pcap", "pcapng"],
+            help="Upload any Wireshark capture file to analyze packets and TCP handshakes.",
+        )
+
+    with ctrl_col2:
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("⚡ Generate Sample PCAP", use_container_width=True):
+            generate_sample_pcap(SAMPLE_PCAP_PATH, default_port)
             st.success("Generated sample PCAP!")
             st.rerun()
 
-    # Load PCAP file if present
-    pcap_target = SAMPLE_PCAP_PATH if os.path.exists(SAMPLE_PCAP_PATH) else os.path.join(ROOT, "data", "capture.pcap")
+    with ctrl_col3:
+        target_port = st.number_input(
+            "Port Filter (0 = All):",
+            min_value=0,
+            max_value=65535,
+            value=default_port,
+            help="Filter packets by target port (set to 0 to inspect all ports)",
+        )
 
-    if not os.path.exists(pcap_target):
+    # Determine PCAP source file
+    UPLOADED_PCAP_PATH = os.path.join(ROOT, "data", "uploaded_capture.pcap")
+    pcap_target = None
+
+    if uploaded_pcap is not None:
+        os.makedirs(os.path.dirname(UPLOADED_PCAP_PATH), exist_ok=True)
+        with open(UPLOADED_PCAP_PATH, "wb") as f:
+            f.write(uploaded_pcap.getbuffer())
+        pcap_target = UPLOADED_PCAP_PATH
+        st.success(f"📎 Analyzing uploaded PCAP: **{uploaded_pcap.name}** ({uploaded_pcap.size} bytes)")
+    elif os.path.exists(SAMPLE_PCAP_PATH):
+        pcap_target = SAMPLE_PCAP_PATH
+    elif os.path.exists(os.path.join(ROOT, "data", "capture.pcap")):
+        pcap_target = os.path.join(ROOT, "data", "capture.pcap")
+
+    if not pcap_target or not os.path.exists(pcap_target):
         st.info("💡 No `.pcap` capture file detected yet.")
-        st.markdown("Click **'⚡ Generate & Load Sample PCAP'** above to generate a test packet capture file.")
+        st.markdown("Upload a `.pcap` file using the uploader above or click **'⚡ Generate Sample PCAP'**.")
     else:
         pcap_df, summary = parse_pcap_data(pcap_target, target_port)
 
         if pcap_df.empty:
-            st.warning(f"No relevant TCP/UDP traffic found matching experiment port {target_port}.")
+            port_msg = f"matching port {target_port}" if target_port > 0 else ""
+            st.warning(f"No relevant TCP/UDP traffic found {port_msg} in `{os.path.basename(pcap_target)}`.")
         else:
             # Summary Metrics Cards
             m1, m2, m3, m4 = st.columns(4)
@@ -405,9 +437,12 @@ with tab4:
                 counts = [summary["tcp_count"], summary["udp_count"]]
                 colors = ["#1f77b4", "#ff7f0e"]
 
-                ax_pcap.pie(counts, labels=protocols, autopct="%1.1f%%", colors=colors, startangle=140, explode=(0.05, 0))
-                ax_pcap.set_title("TCP vs UDP Packet Volume", fontsize=11, fontweight="bold")
-                st.pyplot(fig_pcap)
+                if sum(counts) > 0:
+                    ax_pcap.pie(counts, labels=protocols, autopct="%1.1f%%", colors=colors, startangle=140, explode=(0.05, 0))
+                    ax_pcap.set_title("TCP vs UDP Packet Volume", fontsize=11, fontweight="bold")
+                    st.pyplot(fig_pcap)
+                else:
+                    st.info("No TCP/UDP packet distribution available.")
 
             with chart_col2:
                 st.markdown("#### Handshake & Protocol Insights:")
@@ -416,4 +451,4 @@ with tab4:
                     f"- **Average TCP Packet Size:** `{summary['avg_tcp_size']} bytes`.\n"
                     f"- **Average UDP Packet Size:** `{summary['avg_udp_size']} bytes`."
                 )
-                st.markdown("💡 **Tip for Faculty Demo:** You can also open `data/sample_capture.pcap` directly in Wireshark desktop GUI!")
+                st.markdown("💡 **Tip for Faculty Demo:** You can open `.pcap` files directly in Wireshark desktop GUI as well!")
