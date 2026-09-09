@@ -46,9 +46,24 @@
 - ✅ Tested full 8-experiment matrix (100 packets each, 800 packets total)
 - ✅ Results cleanly saved to `data/results.csv`
 
-## What's Next — Phase 4
-- Build interactive Streamlit dashboard (`dashboard/app.py`)
-- Display comparison summary tables
-- Plot interactive charts for Throughput vs Packet Size, Latency (RTT) vs Packet Size, Jitter vs Packet Size
-- Include protocol selection sidebar & metric filters
+## Phase 4 — Graphs & Interactive Dashboard ✅
+- Created Streamlit web dashboard (`dashboard/app.py`):
+  - Metric comparison view: side-by-side TCP vs UDP summary per selected packet size
+  - Raw results DataFrame view with CSV export capability
+  - 5 Matplotlib visualization graphs:
+    1. Packet Size vs Transmission Time (sec)
+    2. Packet Size vs Throughput (Mbps)
+    3. Packet Size vs Average RTT (ms)
+    4. Packet Size vs Packet Loss (%)
+    5. Combined 2x2 Multi-Panel Performance Grid
+  - Interactive sidebar controls: "Run Experiments" and "Run Fresh" triggers calling `run_experiments.py` as a subprocess
+- ✅ Installed `streamlit` and `matplotlib` dependencies
+- ✅ Verified `dashboard/app.py` compiles cleanly and renders metrics
+
+## What's Next — Phase 5
+- Create Wireshark PCAP parser script (`analyzer/pcap_parser.py`) using Scapy
+- Parse `.pcap` files exported from Wireshark GUI
+- Extract packet metadata: Src/Dst IP, Src/Dst Port, Packet Size, TCP Flags / UDP Markers, Sequence Numbers, Timestamps
+- Print analysis summary: TCP handshake detection (SYN → SYN-ACK → ACK), packet counts, average sizes
+
 

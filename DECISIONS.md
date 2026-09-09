@@ -203,3 +203,16 @@ Alternatives considered:
   - In-process threading (`threading.Thread`) — rejected because socket options and state within Python interpreter threads can leak across runs and Python's GIL could introduce unintended CPU contention between client and server threads on loopback.
 
 Why this one: Process isolation guarantees clean socket state, fresh memory, and reliable teardown for every single experiment iteration.
+
+---
+
+## [Phase 4] Streamlit for dashboard framework (over Tkinter / Custom Web Apps)
+
+Decision: Build the interactive visualization dashboard using Streamlit (`dashboard/app.py`) with Matplotlib integration.
+
+Alternatives considered:
+  - Tkinter — rejected because Tkinter requires extensive GUI layout boilerplate, lacks native web accessibility, has no built-in DataFrame grid component, and requires embedding Canvas widgets for charts.
+  - Flask / Django custom web app — rejected because writing HTML/CSS templates, REST API routes, and JS charting libraries (Chart.js/D3) introduces excessive frontend complexity for a networking analysis tool.
+  - Dash by Plotly — rejected because Dash has a steeper callback learning curve and introduces Plotly as an extra dependency.
+
+Why this one: Streamlit allows writing pure Python code for responsive web layouts, natively integrates with pandas DataFrames, renders matplotlib charts effortlessly, and provides reactive rerun controls for live experiment execution.
