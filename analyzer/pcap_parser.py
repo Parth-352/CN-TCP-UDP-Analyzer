@@ -15,8 +15,8 @@ import argparse
 import os
 import sys
 import time
+import pandas as pd
 import yaml
-from datetime import datetime
 
 # Project root
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -27,8 +27,10 @@ from scapy.all import IP, TCP, UDP, Ether, Raw, rdpcap, wrpcap
 
 def load_config() -> dict:
     config_path = os.path.join(ROOT, "config.yaml")
-    with open(config_path) as f:
-        return yaml.safe_load(f)
+    if os.path.exists(config_path):
+        with open(config_path) as f:
+            return yaml.safe_load(f)
+    return {"server_port": 5000}
 
 
 def format_flags(tcp_layer) -> str:
@@ -98,39 +100,34 @@ def generate_sample_pcap(filepath: str, target_port: int = 5000):
     print(f"[PCAP Analyzer] Sample PCAP generated at: {filepath} ({len(pkts)} packets)")
 
 
-def parse_pcap(pcap_path: str, target_port: int):
-    """Read and parse a .pcap file, outputting packet details and protocol statistics."""
-    if not os.path.exists(pcap_path):
-        print(f"[Error] PCAP file not found at: {pcap_path}")
-        print("Tip: Run 'python analyzer/pcap_parser.py --generate-sample' to create a test file.")
-        return
+def parse_pcap_data(pcap_path: str, target_port: int):
+    """
+    Read and parse a .pcap file, returning a pandas DataFrame and summary stats.
 
-    print(f"\n{'=' * 80}")
-    print(f"  NETPULSE PCAP ANALYZER — File: {pcap_path}")
-    print(f"  Filtering for Target Port: {target_port}")
-    print(f"{'=' * 80}\n")
+    Returns:
+        (df, summary_dict)
+    """
+    if not os.path.exists(pcap_path):
+        return pd.DataFrame(), {}
 
     try:
         packets = rdpcap(pcap_path)
     except Exception as e:
         print(f"[Error] Failed to read PCAP file: {e}")
-        return
+        return pd.DataFrame(), {}
 
+    rows = []
     tcp_count = 0
     udp_count = 0
     tcp_total_bytes = 0
     udp_total_bytes = 0
 
-    # Tracking TCP handshake pairs
     syn_seen = 0
     syn_ack_seen = 0
-    ack_after_synack = 0
     handshake_pairs = 0
 
-    print(f"{'No.':<5} {'Protocol':<8} {'Source IP:Port':<22} {'Dest IP:Port':<22} {'Size(B)':<8} {'Flags/Info':<15}")
-    print("─" * 80)
-
-    for idx, pkt in enumerate(packets, start=1):
+    idx = 1
+    for pkt in packets:
         if not pkt.haslayer(IP):
             continue
 
@@ -148,20 +145,25 @@ def parse_pcap(pcap_path: str, target_port: int):
             tcp_total_bytes += pkt_size
             flags = format_flags(tcp)
 
-            # Handshake tracking logic
             if "SYN" in flags and "ACK" not in flags:
                 syn_seen += 1
             elif "SYN" in flags and "ACK" in flags:
                 syn_ack_seen += 1
             elif "ACK" in flags and syn_ack_seen > handshake_pairs:
-                ack_after_synack += 1
                 handshake_pairs += 1
 
-            info = f"Seq={tcp.seq} Ack={tcp.ack} [{flags}]"
-            src_str = f"{src_ip}:{tcp.sport}"
-            dst_str = f"{dst_ip}:{tcp.dport}"
-
-            print(f"{idx:<5} {'TCP':<8} {src_str:<22} {dst_str:<22} {pkt_size:<8} {info:<15}")
+            rows.append({
+                "No.": idx,
+                "Protocol": "TCP",
+                "Source": f"{src_ip}:{tcp.sport}",
+                "Destination": f"{dst_ip}:{tcp.dport}",
+                "Length (B)": pkt_size,
+                "Flags": flags,
+                "Seq": tcp.seq,
+                "Ack": tcp.ack,
+                "Info": f"Seq={tcp.seq} Ack={tcp.ack} [{flags}]",
+            })
+            idx += 1
 
         elif pkt.haslayer(UDP):
             udp = pkt[UDP]
@@ -172,25 +174,67 @@ def parse_pcap(pcap_path: str, target_port: int):
             pkt_size = len(pkt)
             udp_total_bytes += pkt_size
 
-            src_str = f"{src_ip}:{udp.sport}"
-            dst_str = f"{dst_ip}:{udp.dport}"
-            info = f"Len={udp.len}"
+            rows.append({
+                "No.": idx,
+                "Protocol": "UDP",
+                "Source": f"{src_ip}:{udp.sport}",
+                "Destination": f"{dst_ip}:{udp.dport}",
+                "Length (B)": pkt_size,
+                "Flags": "N/A",
+                "Seq": "N/A",
+                "Ack": "N/A",
+                "Info": f"Len={udp.len}",
+            })
+            idx += 1
 
-            print(f"{idx:<5} {'UDP':<8} {src_str:<22} {dst_str:<22} {pkt_size:<8} {info:<15}")
-
-    # Summary report
+    df = pd.DataFrame(rows)
     avg_tcp_size = (tcp_total_bytes / tcp_count) if tcp_count > 0 else 0
     avg_udp_size = (udp_total_bytes / udp_count) if udp_count > 0 else 0
+
+    summary = {
+        "total_packets": tcp_count + udp_count,
+        "tcp_count": tcp_count,
+        "udp_count": udp_count,
+        "avg_tcp_size": round(avg_tcp_size, 2),
+        "avg_udp_size": round(avg_udp_size, 2),
+        "handshake_pairs": handshake_pairs,
+    }
+
+    return df, summary
+
+
+def parse_pcap(pcap_path: str, target_port: int):
+    """Read and parse a .pcap file, outputting packet details and protocol statistics."""
+    if not os.path.exists(pcap_path):
+        print(f"[Error] PCAP file not found at: {pcap_path}")
+        print("Tip: Run 'python analyzer/pcap_parser.py --generate-sample' to create a test file.")
+        return
+
+    print(f"\n{'=' * 80}")
+    print(f"  NETPULSE PCAP ANALYZER — File: {pcap_path}")
+    print(f"  Filtering for Target Port: {target_port}")
+    print(f"{'=' * 80}\n")
+
+    df, summary = parse_pcap_data(pcap_path, target_port)
+    if df.empty:
+        print("[Notice] No relevant TCP/UDP packets found matching port.")
+        return
+
+    print(f"{'No.':<5} {'Protocol':<8} {'Source IP:Port':<22} {'Dest IP:Port':<22} {'Size(B)':<8} {'Flags/Info':<15}")
+    print("─" * 80)
+
+    for _, row in df.iterrows():
+        print(f"{row['No.']:<5} {row['Protocol']:<8} {row['Source']:<22} {row['Destination']:<22} {row['Length (B)']:<8} {row['Info']:<15}")
 
     print(f"\n{'=' * 80}")
     print("  PACKET CAPTURE SUMMARY")
     print(f"{'=' * 80}")
-    print(f"  Total Relevant Packets Filtered : {tcp_count + udp_count}")
-    print(f"  TCP Packet Count                 : {tcp_count}")
-    print(f"  UDP Packet Count                 : {udp_count}")
-    print(f"  Average TCP Packet Size          : {avg_tcp_size:.2f} bytes")
-    print(f"  Average UDP Packet Size          : {avg_udp_size:.2f} bytes")
-    print(f"  Complete TCP Handshakes Detected : {handshake_pairs}")
+    print(f"  Total Relevant Packets Filtered : {summary['total_packets']}")
+    print(f"  TCP Packet Count                 : {summary['tcp_count']}")
+    print(f"  UDP Packet Count                 : {summary['udp_count']}")
+    print(f"  Average TCP Packet Size          : {summary['avg_tcp_size']} bytes")
+    print(f"  Average UDP Packet Size          : {summary['avg_udp_size']} bytes")
+    print(f"  Complete TCP Handshakes Detected : {summary['handshake_pairs']}")
     print(f"{'=' * 80}\n")
 
 
@@ -207,12 +251,11 @@ def main():
 
     sample_path = os.path.join(ROOT, "data", "sample_capture.pcap")
 
-    if args.generate_sample:
+    if args.generate-sample or args.generate_sample:
         generate_sample_pcap(sample_path, target_port)
         parse_pcap(sample_path, target_port)
         return
 
-    # If default file doesn't exist, generate sample & parse it for a seamless demo
     if args.pcap_file == os.path.join(ROOT, "data", "capture.pcap") and not os.path.exists(args.pcap_file):
         print(f"[Runner] No capture file found at '{args.pcap_file}'. Generating sample PCAP for demo...")
         generate_sample_pcap(sample_path, target_port)

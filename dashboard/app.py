@@ -5,7 +5,8 @@ Displays TCP vs UDP performance metrics:
 1. Per-packet size side-by-side metric comparison table
 2. 5 Matplotlib visualization charts (Transmission Time, Throughput, RTT, Loss, Summary Grid)
 3. Smart Protocol Recommender engine tab
-4. Interactive sidebar to trigger background experiment runs
+4. Wireshark PCAP Packet Capture Inspector tab
+5. Interactive sidebar to trigger background experiment runs
 """
 
 import os
@@ -21,8 +22,10 @@ sys.path.insert(0, ROOT)
 
 from recommender.profiles import PROFILES
 from recommender.engine import recommend
+from analyzer.pcap_parser import generate_sample_pcap, parse_pcap_data, load_config
 
 CSV_PATH = os.path.join(ROOT, "data", "results.csv")
+SAMPLE_PCAP_PATH = os.path.join(ROOT, "data", "sample_capture.pcap")
 RUNNER_PATH = os.path.join(ROOT, "run_experiments.py")
 
 # Page Configuration
@@ -33,7 +36,7 @@ st.set_page_config(
 )
 
 st.title("⚡ NetPulse — TCP vs UDP Performance Analyzer")
-st.caption("Real-Time Application-Layer Transport Protocol Metrics & Smart Recommendation Engine")
+st.caption("Real-Time Application-Layer Transport Protocol Metrics, Packet Capture & Recommendation Engine")
 
 
 def load_data():
@@ -100,10 +103,11 @@ st.sidebar.info(
 # ---------------------------------------------------------
 df = load_data()
 
-tab1, tab2, tab3 = st.tabs([
+tab1, tab2, tab3, tab4 = st.tabs([
     "📊 Metric Tables & Comparison",
     "📈 Performance Graphs",
     "🎯 Smart Protocol Recommender",
+    "🔍 Wireshark PCAP Inspector",
 ])
 
 # ---------------------------------------------------------
@@ -350,3 +354,66 @@ with tab3:
     st.markdown("#### Key Decision Factors:")
     for reason in rec["reasons"]:
         st.markdown(f"- {reason}")
+
+# ---------------------------------------------------------
+# TAB 4: Wireshark PCAP Inspector
+# ---------------------------------------------------------
+with tab4:
+    st.subheader("🔍 Wireshark PCAP Packet Capture Inspector")
+    st.caption("Offline Scapy-based Packet Capture Parsing & TCP 3-Way Handshake Detection")
+
+    cfg = load_config()
+    target_port = cfg.get("server_port", 5000)
+
+    btn_col1, btn_col2 = st.columns([1, 2])
+    with btn_col1:
+        if st.button("⚡ Generate & Load Sample PCAP", use_container_width=True):
+            generate_sample_pcap(SAMPLE_PCAP_PATH, target_port)
+            st.success("Generated sample PCAP!")
+            st.rerun()
+
+    # Load PCAP file if present
+    pcap_target = SAMPLE_PCAP_PATH if os.path.exists(SAMPLE_PCAP_PATH) else os.path.join(ROOT, "data", "capture.pcap")
+
+    if not os.path.exists(pcap_target):
+        st.info("💡 No `.pcap` capture file detected yet.")
+        st.markdown("Click **'⚡ Generate & Load Sample PCAP'** above to generate a test packet capture file.")
+    else:
+        pcap_df, summary = parse_pcap_data(pcap_target, target_port)
+
+        if pcap_df.empty:
+            st.warning(f"No relevant TCP/UDP traffic found matching experiment port {target_port}.")
+        else:
+            # Summary Metrics Cards
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("Total Packets Captured", summary["total_packets"])
+            m2.metric("TCP Packets", summary["tcp_count"])
+            m3.metric("UDP Datagrams", summary["udp_count"])
+            m4.metric("Complete Handshakes", f"{summary['handshake_pairs']} 🤝")
+
+            st.markdown("### Parsed Packet Stream Table")
+            display_cols = ["No.", "Protocol", "Source", "Destination", "Length (B)", "Flags", "Info"]
+            st.dataframe(pcap_df[display_cols], use_container_width=True)
+
+            # Protocol Breakdown Chart
+            st.markdown("### Packet Capture Protocol Distribution")
+            chart_col1, chart_col2 = st.columns(2)
+
+            with chart_col1:
+                fig_pcap, ax_pcap = plt.subplots(figsize=(5, 4))
+                protocols = ["TCP", "UDP"]
+                counts = [summary["tcp_count"], summary["udp_count"]]
+                colors = ["#1f77b4", "#ff7f0e"]
+
+                ax_pcap.pie(counts, labels=protocols, autopct="%1.1f%%", colors=colors, startangle=140, explode=(0.05, 0))
+                ax_pcap.set_title("TCP vs UDP Packet Volume", fontsize=11, fontweight="bold")
+                st.pyplot(fig_pcap)
+
+            with chart_col2:
+                st.markdown("#### Handshake & Protocol Insights:")
+                st.info(
+                    f"- **Detected 3-Way Handshakes:** **{summary['handshake_pairs']}** complete (`SYN` ➔ `SYN/ACK` ➔ `ACK`) sequence(s).\n"
+                    f"- **Average TCP Packet Size:** `{summary['avg_tcp_size']} bytes`.\n"
+                    f"- **Average UDP Packet Size:** `{summary['avg_udp_size']} bytes`."
+                )
+                st.markdown("💡 **Tip for Faculty Demo:** You can also open `data/sample_capture.pcap` directly in Wireshark desktop GUI!")
