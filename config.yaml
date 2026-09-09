@@ -1,0 +1,17 @@
+# NetPulse experiment configuration
+
+server_ip: "127.0.0.1"
+server_port: 5000
+
+# Packet sizes to test (in bytes)
+packet_sizes:
+  - 64
+  - 256
+  - 512
+  - 1024
+
+# Number of packets to send per experiment
+num_packets: 100
+
+# Timeout for waiting on UDP echo replies (seconds)
+protocol_timeout_sec: 2
