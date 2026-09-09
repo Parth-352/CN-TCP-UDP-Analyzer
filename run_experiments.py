@@ -70,7 +70,12 @@ def append_row(protocol: str, packet_size: int, num_packets: int, metrics: dict)
 
 
 def start_server(protocol: str, cfg: dict) -> subprocess.Popen:
-    """Start a TCP or UDP server as a subprocess."""
+    """Start a TCP or UDP server as a subprocess (local mode only)."""
+    server_ip = cfg.get("server_ip", "127.0.0.1")
+    if server_ip not in ("127.0.0.1", "localhost"):
+        # Remote mode: server is already running on the target remote machine
+        return None
+
     script = os.path.join(ROOT, protocol, "server.py")
     proc = subprocess.Popen(
         [sys.executable, script],
@@ -82,7 +87,9 @@ def start_server(protocol: str, cfg: dict) -> subprocess.Popen:
 
 
 def stop_server(proc: subprocess.Popen):
-    """Terminate a server subprocess."""
+    """Terminate a server subprocess if running locally."""
+    if proc is None:
+        return
     proc.terminate()
     try:
         proc.wait(timeout=3)

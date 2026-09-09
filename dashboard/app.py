@@ -22,20 +22,18 @@ sys.path.insert(0, ROOT)
 
 from recommender.profiles import PROFILES
 from recommender.engine import recommend
-from analyzer.pcap_parser import generate_sample_pcap, parse_pcap_data, load_config
+from analyzer.pcap_parser import parse_pcap_data, load_config
 
 CSV_PATH = os.path.join(ROOT, "data", "results.csv")
-SAMPLE_PCAP_PATH = os.path.join(ROOT, "data", "sample_capture.pcap")
 RUNNER_PATH = os.path.join(ROOT, "run_experiments.py")
 
 # Page Configuration
 st.set_page_config(
     page_title="NetPulse — TCP vs UDP Analyzer",
-    page_icon="⚡",
     layout="wide",
 )
 
-st.title("⚡ NetPulse — TCP vs UDP Performance Analyzer")
+st.title("NetPulse — TCP vs UDP Performance Analyzer")
 st.caption("Real-Time Application-Layer Transport Protocol Metrics, Packet Capture & Recommendation Engine")
 
 
@@ -65,38 +63,61 @@ def run_experiment_subprocess(fresh: bool = False):
         return False, e.stderr
 
 
+def clear_dataset():
+    """Completely wipe data/results.csv file entries."""
+    try:
+        os.makedirs(os.path.dirname(CSV_PATH), exist_ok=True)
+        headers = "Protocol,PacketSize,Packets,TransmissionTime,AvgRTT,Throughput,PacketLoss,Jitter,Timestamp\n"
+        with open(CSV_PATH, "w", newline="") as f:
+            f.write(headers)
+        return True
+    except Exception as e:
+        return False
+
+
 # ---------------------------------------------------------
 # Sidebar Controls
 # ---------------------------------------------------------
-st.sidebar.header("🛠 Experiment Controls")
+st.sidebar.header("Benchmark Controls")
 
-if st.sidebar.button("🚀 Run Experiments (Append)", use_container_width=True):
-    with st.spinner("Running TCP and UDP experiments..."):
-        success, output = run_experiment_subprocess(fresh=False)
-        if success:
-            st.sidebar.success("Experiments complete!")
-            st.rerun()
-        else:
-            st.sidebar.error("Experiment run failed.")
-            st.sidebar.text_area("Error Log", output, height=200)
-
-if st.sidebar.button("🔄 Run Fresh (Wipe & Re-run)", use_container_width=True):
-    with st.spinner("Wiping results and re-running experiments..."):
+if st.sidebar.button(
+    "Start Fresh Benchmark",
+    use_container_width=True,
+    help="Wipe dataset and run a new benchmark suite.",
+):
+    with st.spinner("Running fresh benchmark..."):
         success, output = run_experiment_subprocess(fresh=True)
         if success:
-            st.sidebar.success("Fresh run complete!")
+            st.sidebar.success("Fresh benchmark complete!")
             st.rerun()
         else:
-            st.sidebar.error("Fresh run failed.")
-            st.sidebar.text_area("Error Log", output, height=200)
+            st.sidebar.error("Fresh benchmark failed.")
+            st.sidebar.text_area("Error Log", output, height=150)
 
-st.sidebar.markdown("---")
-st.sidebar.markdown("### About NetPulse")
-st.sidebar.info(
-    "NetPulse measures real-world transport protocol metrics "
-    "(RTT, Throughput, Loss, Jitter) across varied packet sizes "
-    "using custom socket clients & servers."
-)
+if st.sidebar.button(
+    "Run Additional Benchmark",
+    use_container_width=True,
+    help="Keep existing data and append new runs.",
+):
+    with st.spinner("Running additional benchmark..."):
+        success, output = run_experiment_subprocess(fresh=False)
+        if success:
+            st.sidebar.success("Additional benchmark complete!")
+            st.rerun()
+        else:
+            st.sidebar.error("Additional benchmark failed.")
+            st.sidebar.text_area("Error Log", output, height=150)
+
+if st.sidebar.button(
+    "Clear Dataset",
+    use_container_width=True,
+    help="Wipe all stored dataset entries.",
+):
+    if clear_dataset():
+        st.sidebar.success("Dataset wiped!")
+        st.rerun()
+    else:
+        st.sidebar.error("Failed to wipe dataset.")
 
 # ---------------------------------------------------------
 # Data Loading & Main Content
@@ -104,10 +125,10 @@ st.sidebar.info(
 df = load_data()
 
 tab1, tab2, tab3, tab4 = st.tabs([
-    "📊 Metric Tables & Comparison",
-    "📈 Performance Graphs",
-    "🎯 Smart Protocol Recommender",
-    "🔍 Wireshark PCAP Inspector",
+    "Metric Tables & Comparison",
+    "Performance Graphs",
+    "Smart Protocol Recommender",
+    "Wireshark PCAP Inspector",
 ])
 
 # ---------------------------------------------------------
@@ -115,8 +136,8 @@ tab1, tab2, tab3, tab4 = st.tabs([
 # ---------------------------------------------------------
 with tab1:
     if df is None:
-        st.warning("⚠️ No experiment data found (`data/results.csv` missing or empty).")
-        st.info("Click **'🚀 Run Experiments'** in the sidebar to execute the benchmark suite.")
+        st.warning("No experiment data found (`data/results.csv` missing or empty).")
+        st.info("Click **'Run Experiments'** in the sidebar to execute the benchmark suite.")
     else:
         st.subheader("Protocol Metric Comparison")
         latest_df = df.groupby(["Protocol", "PacketSize"], as_index=False).last()
@@ -171,7 +192,7 @@ with tab1:
 # ---------------------------------------------------------
 with tab2:
     if df is None:
-        st.warning("⚠️ No experiment data available for graphing.")
+        st.warning("No experiment data available for graphing.")
     else:
         st.subheader("Transport Protocol Visual Benchmarks")
         latest_df = df.groupby(["Protocol", "PacketSize"], as_index=False).last()
@@ -287,7 +308,7 @@ with tab2:
 # TAB 3: Protocol Recommendation Engine
 # ---------------------------------------------------------
 with tab3:
-    st.subheader("🎯 Rule-Based Protocol Recommendation Engine")
+    st.subheader("Rule-Based Protocol Recommendation Engine")
     st.write(
         "Select an application workload profile to analyze requirement sensitivity "
         "and get an automated transport protocol recommendation."
@@ -340,11 +361,11 @@ with tab3:
 
     if rec["protocol"] == "UDP":
         st.success(
-            f"⚡ Recommended Protocol: **UDP** (Confidence: **{rec['confidence_pct']}%**)"
+            f"Recommended Protocol: **UDP** (Confidence: **{rec['confidence_pct']}%**)"
         )
     else:
         st.info(
-            f"🔒 Recommended Protocol: **TCP** (Confidence: **{rec['confidence_pct']}%**)"
+            f"Recommended Protocol: **TCP** (Confidence: **{rec['confidence_pct']}%**)"
         )
 
     score_col1, score_col2 = st.columns(2)
@@ -359,30 +380,23 @@ with tab3:
 # TAB 4: Wireshark PCAP Inspector
 # ---------------------------------------------------------
 with tab4:
-    st.subheader("🔍 Wireshark PCAP Packet Capture Inspector")
+    st.subheader("Wireshark PCAP Packet Capture Inspector")
     st.caption("Offline Scapy-based Packet Capture Parsing & TCP 3-Way Handshake Detection")
 
     cfg = load_config()
     default_port = cfg.get("server_port", 5000)
 
-    # Controls Layout: Upload & Sample Generator & Port Filter
-    ctrl_col1, ctrl_col2, ctrl_col3 = st.columns([2, 1, 1])
+    # Controls Layout: Upload & Port Filter
+    ctrl_col1, ctrl_col2 = st.columns([3, 1])
 
     with ctrl_col1:
         uploaded_pcap = st.file_uploader(
-            "📂 Upload Custom PCAP File (.pcap, .pcapng)",
+            "Upload Custom PCAP File (.pcap, .pcapng)",
             type=["pcap", "pcapng"],
             help="Upload any Wireshark capture file to analyze packets and TCP handshakes.",
         )
 
     with ctrl_col2:
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("⚡ Generate Sample PCAP", use_container_width=True):
-            generate_sample_pcap(SAMPLE_PCAP_PATH, default_port)
-            st.success("Generated sample PCAP!")
-            st.rerun()
-
-    with ctrl_col3:
         target_port = st.number_input(
             "Port Filter (0 = All):",
             min_value=0,
@@ -400,15 +414,15 @@ with tab4:
         with open(UPLOADED_PCAP_PATH, "wb") as f:
             f.write(uploaded_pcap.getbuffer())
         pcap_target = UPLOADED_PCAP_PATH
-        st.success(f"📎 Analyzing uploaded PCAP: **{uploaded_pcap.name}** ({uploaded_pcap.size} bytes)")
-    elif os.path.exists(SAMPLE_PCAP_PATH):
-        pcap_target = SAMPLE_PCAP_PATH
+        st.success(f"Analyzing uploaded PCAP: **{uploaded_pcap.name}** ({uploaded_pcap.size} bytes)")
     elif os.path.exists(os.path.join(ROOT, "data", "capture.pcap")):
         pcap_target = os.path.join(ROOT, "data", "capture.pcap")
+    elif os.path.exists(os.path.join(ROOT, "data", "capture.pcapng")):
+        pcap_target = os.path.join(ROOT, "data", "capture.pcapng")
 
     if not pcap_target or not os.path.exists(pcap_target):
-        st.info("💡 No `.pcap` capture file detected yet.")
-        st.markdown("Upload a `.pcap` file using the uploader above or click **'⚡ Generate Sample PCAP'**.")
+        st.info("No .pcap capture file detected yet.")
+        st.markdown("Upload a Wireshark `.pcap` or `.pcapng` file using the uploader above, or save your Wireshark capture into `data/capture.pcap`.")
     else:
         pcap_df, summary = parse_pcap_data(pcap_target, target_port)
 
@@ -421,7 +435,7 @@ with tab4:
             m1.metric("Total Packets Captured", summary["total_packets"])
             m2.metric("TCP Packets", summary["tcp_count"])
             m3.metric("UDP Datagrams", summary["udp_count"])
-            m4.metric("Complete Handshakes", f"{summary['handshake_pairs']} 🤝")
+            m4.metric("Complete Handshakes", summary["handshake_pairs"])
 
             st.markdown("### Parsed Packet Stream Table")
             display_cols = ["No.", "Protocol", "Source", "Destination", "Length (B)", "Flags", "Info"]
@@ -451,4 +465,4 @@ with tab4:
                     f"- **Average TCP Packet Size:** `{summary['avg_tcp_size']} bytes`.\n"
                     f"- **Average UDP Packet Size:** `{summary['avg_udp_size']} bytes`."
                 )
-                st.markdown("💡 **Tip for Faculty Demo:** You can open `.pcap` files directly in Wireshark desktop GUI as well!")
+                st.markdown("**Tip for Faculty Demo:** You can open .pcap files directly in Wireshark desktop GUI as well!")

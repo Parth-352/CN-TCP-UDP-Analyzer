@@ -43,32 +43,37 @@ def run_server(host: str, port: int, packet_size: int = None):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as srv:
         srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         srv.bind((host, port))
-        srv.listen(1)
+        srv.listen(5)
         print(f"[TCP Server] Listening on {host}:{port}")
 
-        conn, addr = srv.accept()
-        with conn:
-            print(f"[TCP Server] Connection from {addr}")
-
+        try:
             while True:
-                # First, read the 4-byte length prefix
-                length_data = recv_exact(conn, 4)
-                if not length_data:
-                    break
+                conn, addr = srv.accept()
+                with conn:
+                    print(f"[TCP Server] Connection accepted from {addr}")
 
-                msg_len = int.from_bytes(length_data, "big")
-                data = recv_exact(conn, msg_len)
-                if not data:
-                    break
+                    while True:
+                        # Read 4-byte big-endian payload length prefix
+                        length_data = recv_exact(conn, 4)
+                        if not length_data:
+                            break
 
-                seq, ts = parse_header(data)
-                print(f"[TCP Server] Echoing packet seq={seq}")
-                # Echo back with the same length prefix
-                conn.sendall(length_data + data)
+                        msg_len = int.from_bytes(length_data, "big")
+                        data = recv_exact(conn, msg_len)
+                        if not data:
+                            break
 
-        print("[TCP Server] Client disconnected, shutting down.")
+                        seq, ts = parse_header(data)
+                        print(f"[TCP Server] Echoing packet seq={seq}")
+                        # Echo back length prefix + packet payload
+                        conn.sendall(length_data + data)
+
+                print(f"[TCP Server] Connection with {addr} closed. Waiting for next connection...")
+        except KeyboardInterrupt:
+            print("\n[TCP Server] Shutting down.")
 
 
 if __name__ == "__main__":
     cfg = load_config()
-    run_server(cfg["server_ip"], cfg["server_port"])
+    bind_addr = cfg.get("server_bind", "0.0.0.0")
+    run_server(bind_addr, cfg["server_port"])

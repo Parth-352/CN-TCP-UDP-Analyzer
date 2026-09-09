@@ -8,7 +8,6 @@ and computes summary statistics (packet counts, TCP handshake pairs, average siz
 Usage:
     python analyzer/pcap_parser.py                      # analyzes data/capture.pcap
     python analyzer/pcap_parser.py path/to/file.pcap     # analyzes specific pcap
-    python analyzer/pcap_parser.py --generate-sample     # generates sample pcap & analyzes
 """
 
 import argparse
@@ -22,7 +21,7 @@ import yaml
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
-from scapy.all import IP, TCP, UDP, Ether, Raw, rdpcap, wrpcap
+from scapy.all import IP, TCP, UDP, rdpcap
 
 
 def load_config() -> dict:
@@ -48,56 +47,6 @@ def format_flags(tcp_layer) -> str:
     if "R" in flags_str:
         flag_names.append("RST")
     return "+".join(flag_names) if flag_names else flags_str
-
-
-def generate_sample_pcap(filepath: str, target_port: int = 5000):
-    """Generate a sample .pcap file with TCP handshakes and UDP datagrams for testing."""
-    os.makedirs(os.path.dirname(filepath), exist_ok=True)
-    pkts = []
-    client_ip = "127.0.0.1"
-    server_ip = "127.0.0.1"
-    client_port = 54321
-
-    t0 = time.time()
-
-    # 1. TCP Handshake
-    syn = Ether() / IP(src=client_ip, dst=server_ip) / TCP(sport=client_port, dport=target_port, flags="S", seq=1000)
-    syn.time = t0
-    pkts.append(syn)
-
-    syn_ack = Ether() / IP(src=server_ip, dst=client_ip) / TCP(sport=target_port, dport=client_port, flags="SA", seq=2000, ack=1001)
-    syn_ack.time = t0 + 0.001
-    pkts.append(syn_ack)
-
-    ack = Ether() / IP(src=client_ip, dst=server_ip) / TCP(sport=client_port, dport=target_port, flags="A", seq=1001, ack=2001)
-    ack.time = t0 + 0.002
-    pkts.append(ack)
-
-    # 2. TCP Data Echo
-    tcp_data = Ether() / IP(src=client_ip, dst=server_ip) / TCP(sport=client_port, dport=target_port, flags="PA", seq=1001, ack=2001) / Raw(b"X" * 64)
-    tcp_data.time = t0 + 0.005
-    pkts.append(tcp_data)
-
-    tcp_echo = Ether() / IP(src=server_ip, dst=client_ip) / TCP(sport=target_port, dport=client_port, flags="PA", seq=2001, ack=1065) / Raw(b"X" * 64)
-    tcp_echo.time = t0 + 0.006
-    pkts.append(tcp_echo)
-
-    # 3. TCP Teardown
-    fin = Ether() / IP(src=client_ip, dst=server_ip) / TCP(sport=client_port, dport=target_port, flags="FA", seq=1065, ack=2065)
-    fin.time = t0 + 0.010
-    pkts.append(fin)
-
-    # 4. UDP Datagram Echo
-    udp_req = Ether() / IP(src=client_ip, dst=server_ip) / UDP(sport=client_port, dport=target_port) / Raw(b"U" * 256)
-    udp_req.time = t0 + 0.015
-    pkts.append(udp_req)
-
-    udp_resp = Ether() / IP(src=server_ip, dst=client_ip) / UDP(sport=target_port, dport=client_port) / Raw(b"U" * 256)
-    udp_resp.time = t0 + 0.016
-    pkts.append(udp_resp)
-
-    wrpcap(filepath, pkts)
-    print(f"[PCAP Analyzer] Sample PCAP generated at: {filepath} ({len(pkts)} packets)")
 
 
 def parse_pcap_data(pcap_path: str, target_port: int):
@@ -209,7 +158,6 @@ def parse_pcap(pcap_path: str, target_port: int):
     """Read and parse a .pcap file, outputting packet details and protocol statistics."""
     if not os.path.exists(pcap_path):
         print(f"[Error] PCAP file not found at: {pcap_path}")
-        print("Tip: Run 'python analyzer/pcap_parser.py --generate-sample' to create a test file.")
         return
 
     print(f"\n{'=' * 80}")
@@ -244,26 +192,12 @@ def main():
     parser = argparse.ArgumentParser(description="NetPulse Wireshark PCAP Analyzer")
     parser.add_argument("pcap_file", nargs="?", default=os.path.join(ROOT, "data", "capture.pcap"),
                         help="Path to .pcap or .pcapng file (default: data/capture.pcap)")
-    parser.add_argument("--generate-sample", action="store_true",
-                        help="Generate a sample .pcap file for testing and exit")
     args = parser.parse_args()
 
     cfg = load_config()
     target_port = cfg.get("server_port", 5000)
 
-    sample_path = os.path.join(ROOT, "data", "sample_capture.pcap")
-
-    if args.generate-sample or args.generate_sample:
-        generate_sample_pcap(sample_path, target_port)
-        parse_pcap(sample_path, target_port)
-        return
-
-    if args.pcap_file == os.path.join(ROOT, "data", "capture.pcap") and not os.path.exists(args.pcap_file):
-        print(f"[Runner] No capture file found at '{args.pcap_file}'. Generating sample PCAP for demo...")
-        generate_sample_pcap(sample_path, target_port)
-        parse_pcap(sample_path, target_port)
-    else:
-        parse_pcap(args.pcap_file, target_port)
+    parse_pcap(args.pcap_file, target_port)
 
 
 if __name__ == "__main__":

@@ -1,10 +1,10 @@
-# ⚡ NetPulse — TCP vs UDP Performance Analyzer & Smart Recommender
+# NetPulse — TCP vs UDP Performance Analyzer & Smart Recommender
 
 > An application-layer transport protocol measurement suite, benchmark runner, interactive Streamlit dashboard, Wireshark PCAP analyzer, and weighted recommendation engine built in Python.
 
 ---
 
-## 🌟 Features
+## Features
 
 - **Core Transport Sockets (`tcp/`, `udp/`):**
   - TCP client/server with 4-byte big-endian length-prefix framing.
@@ -25,7 +25,7 @@
 
 - **Wireshark PCAP Analyzer (`analyzer/`):**
   - Offline Scapy-based `.pcap` / `.pcapng` parser.
-  - Detects TCP 3-way handshakes (`SYN` $\rightarrow$ `SYN/ACK` $\rightarrow$ `ACK`), flag breakdown, and packet sizes.
+  - Detects TCP 3-way handshakes (`SYN` -> `SYN/ACK` -> `ACK`), flag breakdown, and packet sizes.
   - Includes `--generate-sample` synthetic PCAP generator.
 
 - **Smart Protocol Recommender (`recommender/`):**
@@ -34,7 +34,7 @@
 
 ---
 
-## 🚀 Quick Start Guide
+## Quick Start Guide
 
 ### 1. Requirements & Installation
 Ensure you have Python 3.8+ installed. Install project dependencies:
@@ -73,7 +73,7 @@ python3 analyzer/pcap_parser.py path/to/your_capture.pcap
 
 ---
 
-## 📚 Project Structure
+## Project Structure
 
 ```
 NetPulse/
@@ -99,8 +99,7 @@ NetPulse/
 ├── dashboard/
 │   └── app.py                # Streamlit web UI & Matplotlib visualization app
 ├── data/
-│   ├── results.csv           # Experiment results dataset
-│   └── sample_capture.pcap   # Generated sample PCAP file
+│   └── results.csv           # Experiment results dataset
 └── tests/
     ├── test_metrics.py       # Unit tests for metric formulas
     └── test_recommender.py   # Unit tests for recommendation engine
@@ -108,5 +107,5 @@ NetPulse/
 
 ---
 
-## 🎓 Faculty Demonstration Guide
+## Faculty Demonstration Guide
 For a step-by-step 10-minute presentation guide and Q&A reference for college faculty, refer to **`DEMO_GUIDE.md`**.

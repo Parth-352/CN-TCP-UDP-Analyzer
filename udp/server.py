@@ -43,4 +43,5 @@ def run_server(host: str, port: int):
 
 if __name__ == "__main__":
     cfg = load_config()
-    run_server(cfg["server_ip"], cfg["server_port"])
+    bind_addr = cfg.get("server_bind", "0.0.0.0")
+    run_server(bind_addr, cfg["server_port"])

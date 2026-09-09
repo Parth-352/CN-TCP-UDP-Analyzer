@@ -1,11 +1,11 @@
-# ⚡ NetPulse — Complete Workflow & Faculty Demonstration Guide
+# NetPulse — Complete Workflow & Faculty Demonstration Guide
 
 > **Project Title:** NetPulse — Real-Time Transport Protocol (TCP vs UDP) Performance Analyzer & Recommendation Engine  
 > **Course:** Computer Networks / Data Communications  
 
 ---
 
-## 📖 Executive Summary & System Workflow
+## Executive Summary & System Workflow
 
 NetPulse is an application-layer network benchmarking tool built to evaluate, measure, visualize, and analyze the performance trade-offs between **TCP** (Transmission Control Protocol) and **UDP** (User Datagram Protocol) under identical local network conditions.
 
@@ -34,7 +34,7 @@ NetPulse is an application-layer network benchmarking tool built to evaluate, me
 
 ---
 
-## 🛠 Detailed Technical Workflow (How Each Module Works)
+## Detailed Technical Workflow (How Each Module Works)
 
 ### 1. Packet Binary Wire Format (`protocol.py`)
 Every message sent across TCP or UDP uses a custom 16-byte binary header followed by a zero-padded payload:
@@ -59,18 +59,20 @@ Measures 5 core network parameters:
 * Persists results to `data/results.csv` (with a `--fresh` flag to reset data).
 
 ### 4. Interactive Streamlit Dashboard (`dashboard/app.py`)
-* **Tab 1 (Metric Tables):** Per-packet-size side-by-side metric comparison table and full raw CSV dataset preview.
-* **Tab 2 (Visual Benchmarks):** 5 Matplotlib charts:
+* **Tab 1 (Metric Tables & Comparison):** Per-packet-size side-by-side metric comparison table and full raw CSV dataset preview.
+* **Tab 2 (Performance Graphs):** 5 Matplotlib charts:
   1. Packet Size vs Transmission Time (sec)
   2. Packet Size vs Throughput (Mbps)
   3. Packet Size vs Average RTT (ms)
   4. Packet Size vs Packet Loss (%)
   5. 2x2 Multi-Panel Performance Dashboard Grid
+* **Tab 3 (Smart Protocol Recommender):** Multi-criteria recommendation engine supporting 6 application profiles with scoring and confidence metrics.
+* **Tab 4 (Wireshark PCAP Inspector):** Integrated packet analyzer supporting custom `.pcap` / `.pcapng` file uploads, target port filtering (setting `0` inspects all ports), sample generator button, and TCP 3-way handshake detection.
 * **Sidebar Controls:** Interactive triggers to re-run experiments directly from the browser.
 
 ### 5. Wireshark PCAP Analyzer (`analyzer/pcap_parser.py`)
 * Reads `.pcap` / `.pcapng` capture files using **Scapy**.
-* Filters for traffic on target experiment port (default `5000`).
+* Filters for traffic on target experiment port (default `5000`) or inspects all traffic when port is set to `0`.
 * Displays per-packet headers, packet sizes, and TCP flags (`SYN`, `ACK`, `PSH`, `FIN`).
 * Tracks and counts completed TCP 3-way handshakes (`SYN` $\rightarrow$ `SYN/ACK` $\rightarrow$ `ACK`).
 * Includes `--generate-sample` CLI flag to generate a synthetic binary capture file for instant offline demonstration.
@@ -87,7 +89,7 @@ Measures 5 core network parameters:
 
 ---
 
-## 🎓 Step-by-Step Faculty Demonstration Script
+## Step-by-Step Faculty Demonstration Script
 
 Follow this step-by-step flow to give a 10-minute presentation to your professor or faculty panel.
 
@@ -121,20 +123,26 @@ streamlit run dashboard/app.py
 ```
 *(The browser will automatically open to `http://localhost:8501`)*
 
-1. **Show Tab 1 ("📊 Metric Tables & Comparison"):**
+1. **Show Tab 1 ("Metric Tables & Comparison"):**
    - Use the packet size dropdown selector (e.g., `1024` bytes).
    - Point out the side-by-side comparison matrix of Transmission Time, RTT, Throughput, Loss, and Jitter.
-2. **Show Tab 2 ("📈 Performance Graphs"):**
+2. **Show Tab 2 ("Performance Graphs"):**
    - Scroll through the 5 Matplotlib visualization charts.
    - Highlight the **Combined Performance Dashboard Grid** showing all metrics simultaneously.
-3. **Demonstrate Sidebar Interactivity:**
-   - Click **"🚀 Run Experiments (Append)"** in the sidebar.
-   - Show how Streamlit dynamically reruns the benchmark and refreshes the charts automatically.
+3. **Show Tab 4 ("Wireshark PCAP Inspector"):**
+   - Demonstrate dragging and dropping a custom `.pcap` / `.pcapng` file into the UI file uploader.
+   - Adjust the **Port Filter** input (`0` to view all network traffic, or `5000` for experiment traffic).
+   - Click **"Generate Sample PCAP"** to generate synthetic capture data instantly from within the web interface.
+   - Review summary metrics (Total Packets, TCP vs UDP count, Average packet sizes, Complete TCP Handshakes).
+4. **Demonstrate Sidebar Controls:**
+   - **Start Fresh Benchmark:** Wipes old CSV records and executes a fresh benchmark suite.
+   - **Run Additional Benchmark:** Appends new test runs to existing CSV data.
+   - **Clear Dataset:** Instantly deletes all stored dataset entries without running new experiments.
 
 ---
 
 ### Step 4: Smart Protocol Recommender Demo (2 minutes)
-Click on **Tab 3 ("🎯 Smart Protocol Recommender")**:
+Click on **Tab 3 ("Smart Protocol Recommender")**:
 
 1. **Select Profile 1: `Gaming` (Real-Time Online Gaming)**
    - Show that the engine recommends **UDP** with high confidence ($\sim 85\%-90\%$).
@@ -146,19 +154,20 @@ Click on **Tab 3 ("🎯 Smart Protocol Recommender")**:
 ---
 
 ### Step 5: Wireshark PCAP & Packet Analysis Demo (2 minutes)
-Open a new terminal and run the offline PCAP analyzer:
+Open a new terminal and run the offline PCAP analyzer CLI:
 ```bash
+# Analyze custom capture or generated sample via CLI
 python3 analyzer/pcap_parser.py --generate-sample
 ```
 * **What to say:**
-  > *"To analyze protocol behavior at the packet capture layer, NetPulse includes a Scapy-based Wireshark parser. Here we generate and inspect a synthetic network capture file."*
+  > *"To analyze protocol behavior at the packet capture layer, NetPulse includes a Scapy-based Wireshark parser accessible via CLI and integrated into our Streamlit dashboard. Here we inspect packet headers, flag combinations, and handshake sequences."*
 * **Key Observations to Point Out:**
   - Explain how the parser detects the **TCP 3-Way Handshake** (`SYN` $\rightarrow$ `SYN/ACK` $\rightarrow$ `ACK`).
   - Compare TCP flag annotations (`[SYN]`, `[PSH+ACK]`, `[FIN+ACK]`) against UDP datagrams (`Len=256`).
 
 ---
 
-## ⚡ Quick Reference Commands Cheat Sheet
+## Quick Reference Commands Cheat Sheet
 
 | Task | Command |
 |---|---|
@@ -167,10 +176,11 @@ python3 analyzer/pcap_parser.py --generate-sample
 | **Run Fresh Experiments** | `python3 run_experiments.py --fresh` |
 | **Launch Dashboard** | `streamlit run dashboard/app.py` |
 | **Run Wireshark Analyzer** | `python3 analyzer/pcap_parser.py --generate-sample` |
+| **Inspect Custom PCAP** | `python3 analyzer/pcap_parser.py path/to/capture.pcap` |
 
 ---
 
-## 💡 Expected Q&A Questions from Faculty & Answers
+## Expected Q&A Questions from Faculty & Answers
 
 **Q1: How do you measure RTT accurately without clock synchronization issues?**
 > *Answer:* We use echo-based RTT measurement. The client records `time.time()` before sending and records arrival time when the server echoes the packet back. Because both timestamps come from the same client clock, our measurement is immune to inter-host clock skew.
@@ -183,6 +193,9 @@ python3 analyzer/pcap_parser.py --generate-sample
 
 **Q4: Why process isolation for servers during benchmarks?**
 > *Answer:* Running servers in separate `subprocess.Popen` processes guarantees that socket buffers, lingering TCP connection states, or Python thread GIL contention never leak across experiment iterations.
+
+**Q5: How does the Wireshark PCAP Inspector work without root/sudo permissions?**
+> *Answer:* The parser operates offline using Scapy to parse exported `.pcap` or `.pcapng` capture files recorded via Wireshark or generated by our synthetic capture module. This avoids requiring elevated kernel packet-sniffing permissions (`sudo`) while providing full packet header, flag, and handshake visibility.
 
 ---
 *Created for NetPulse Demonstration & Evaluation.*
