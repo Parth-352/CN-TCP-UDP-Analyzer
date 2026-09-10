@@ -180,6 +180,215 @@ python3 analyzer/pcap_parser.py --generate-sample
 
 ---
 
+## Two-Laptop Same-Network Demo (LAN Testing)
+
+This section walks through running NetPulse across **two laptops on the same Wi-Fi / LAN network**:
+
+| Role | Device | What it does |
+|------|--------|-------------|
+| **Server** | 🍎 **Mac** | Runs the TCP & UDP echo servers |
+| **Client** | 💻 **Asus** | Runs the benchmark + Streamlit dashboard |
+
+This demonstrates real network latency, jitter, and loss instead of loopback-only measurements.
+
+### Prerequisites
+
+- Both laptops (Mac & Asus) are connected to the **same Wi-Fi network** (e.g., your college Wi-Fi or a mobile hotspot).
+- Both laptops have the NetPulse project cloned/copied with Python 3 and all dependencies installed (`pip install -r requirements.txt`).
+- **Wireshark** is installed on the Mac (download from [wireshark.org](https://www.wireshark.org/download.html)). You will use it to live-capture the benchmark traffic on the server side.
+- No firewall is blocking port **5000** (or whichever port you use) on the Mac.
+
+### Step 1: Find the Mac's LAN IP (🍎 Mac)
+
+Open Terminal on the Mac and run:
+
+```bash
+ipconfig getifaddr en0
+```
+*(Use `en1` if `en0` shows nothing — `en0` is usually Wi-Fi on Mac.)*
+
+> **Write down this IP** — you'll need it on the Asus. Example: `192.168.1.42`
+
+---
+
+### Step 2: Allow Incoming Connections Through the Firewall (🍎 Mac)
+
+The macOS firewall usually allows incoming connections by default. If it doesn't, go to:
+`System Settings → Network → Firewall → Options` → add Python or allow incoming connections.
+
+---
+
+### Step 3: Start the Servers Manually (🍎 Mac)
+
+Open **two terminal windows** on the Mac and start both servers:
+
+**Terminal 1 — TCP Server:**
+```bash
+cd path/to/CN\ Project
+python3 tcp/server.py
+```
+You should see:
+```
+[TCP Server] Listening on 0.0.0.0:5000
+```
+
+**Terminal 2 — UDP Server:**
+```bash
+cd path/to/CN\ Project
+python3 udp/server.py
+```
+You should see:
+```
+[UDP Server] Listening on 0.0.0.0:5000
+```
+
+> **Note:** Both servers already bind to `0.0.0.0` (all network interfaces) by default via `config.yaml`, so they accept connections from the Asus over the LAN.
+
+---
+
+### Step 4: Update config.yaml on the Asus (💻 Asus)
+
+On the **Asus**, edit `config.yaml` to point to the Mac's IP:
+
+```yaml
+# Change this from 127.0.0.1 to the Mac's LAN IP
+server_ip: "192.168.1.42"    # ← Replace with your Mac's actual IP from Step 1
+```
+
+Leave everything else unchanged. The `server_bind` setting on the Asus side doesn't matter — only the Mac (server) uses it.
+
+---
+
+### Step 5: Verify Connectivity (💻 Asus)
+
+Before running experiments, confirm the Asus can reach the Mac:
+
+```bash
+ping 192.168.1.42
+```
+
+You should see replies. If not, check:
+- Both laptops (Mac & Asus) are on the same network.
+- The firewall on the Mac isn't blocking.
+- The IP address is correct.
+
+---
+
+### Step 6: Start Wireshark Capture Before the Benchmark (🍎 Mac)
+
+Open **Wireshark** on the Mac **before** running the benchmark so it captures all the incoming traffic on the server side:
+
+1. Launch Wireshark on the Mac.
+2. On the start screen, **double-click your Wi-Fi interface** (usually `en0` on Mac) to begin a live capture.
+3. Packets will start scrolling immediately — that's fine, the real traffic comes when you run the benchmark.
+4. *(Optional but recommended)* To reduce noise, apply a **capture filter** before starting:
+   ```
+   port 5000
+   ```
+   This captures only traffic on port 5000 — ignoring all background Wi-Fi traffic.
+
+> **Leave Wireshark running.** You will stop it after the benchmark finishes.
+
+---
+
+### Step 7: Run the Benchmark from the Asus (💻 Asus)
+
+> **Important:** Do **NOT** run `run_experiments.py` on the Mac. The experiment runner detects that `server_ip` is not `127.0.0.1` and skips auto-launching servers — it expects the servers to already be running on the Mac (which you started in Step 3).
+
+```bash
+python3 run_experiments.py --fresh
+```
+
+You will see the Asus sending packets across the real Wi-Fi network. **On the Mac's terminals**, you'll see the echo logs:
+```
+[TCP Server] Connection accepted from ('192.168.1.55', 52341)
+[TCP Server] Echoing packet seq=0
+[TCP Server] Echoing packet seq=1
+...
+```
+
+Meanwhile, **Wireshark on the Mac** will show live packets flowing — you'll see TCP SYN/ACK handshakes and UDP datagrams in real time.
+
+> **What to say to faculty:**
+> *"Notice we are now benchmarking across a real wireless LAN link. The Asus sends packets over Wi-Fi to the Mac running the echo servers, which echoes them back. Wireshark is capturing every single packet on the wire — we'll analyze this capture in our dashboard next."*
+
+---
+
+### Step 8: Stop Wireshark & Save the Capture (🍎 Mac)
+
+Once the benchmark finishes:
+
+1. Go back to Wireshark on the Mac and click the **red square (■) Stop** button in the toolbar.
+2. Go to **File → Save As…**
+3. Save the file as `capture.pcap` — remember where you save it. Use the format **Wireshark/tcpdump/… - pcap** (the default).
+
+> **Tip:** If you didn't use a capture filter earlier, you can apply a **display filter** before saving to keep only the relevant traffic — go to **File → Export Specified Packets…** and choose "Displayed" to export only the filtered packets:
+> ```
+> tcp.port == 5000 || udp.port == 5000
+> ```
+
+---
+
+### Step 9: Launch the Dashboard and Show Results (🍎 Mac)
+
+Since the Mac already has the Wireshark capture, run the dashboard directly on the Mac — no need to transfer files:
+
+```bash
+streamlit run dashboard/app.py
+```
+
+Open the dashboard in the browser on the Mac (`http://localhost:8501`) and walk through:
+
+1. **Tab 1 — Metric Tables:** Show the side-by-side TCP vs UDP comparison — RTT values will now be in the **0.5–5 ms range** instead of the sub-0.1 ms loopback values.
+2. **Tab 2 — Performance Graphs:** The throughput and RTT graphs reflect real network conditions (Wi-Fi congestion, interference, etc.).
+3. **Tab 3 — Protocol Recommender:** The recommendations are now based on real network data rather than loopback-ideal conditions.
+4. **Tab 4 — Wireshark PCAP Inspector:**
+   - Click **"Upload Custom PCAP File"** and select the `capture.pcap` you saved from Wireshark in Step 8.
+   - Set the **Port Filter** to `5000` (should be the default).
+   - Walk faculty through the results:
+     - **Total Packets Captured** — how many packets flowed during the benchmark.
+     - **TCP Packets vs UDP Datagrams** — the protocol distribution pie chart.
+     - **Complete Handshakes** — the number of TCP 3-way handshakes detected (`SYN → SYN/ACK → ACK`).
+     - **Parsed Packet Stream Table** — show the per-packet view with flags, source/destination, and payload sizes.
+
+> **What to say to faculty:**
+> *"We captured this traffic live using Wireshark while the benchmark was running. Our PCAP Inspector uses Scapy to parse every packet — here you can see the TCP 3-way handshake sequences, the echo packets flowing back and forth, and the UDP datagrams. Notice TCP has significantly more overhead packets (SYN, ACK, FIN) compared to UDP's fire-and-forget approach."*
+
+> **Key talking points for faculty:**
+> - *"TCP RTT is higher than UDP because of the three-way handshake and ACK overhead."*
+> - *"UDP may now show actual packet loss if the Wi-Fi link is congested — something impossible to observe on loopback."*
+> - *"Jitter values are higher and more realistic on Wi-Fi due to wireless medium access contention."*
+> - *"The Wireshark capture gives us ground-truth packet-level visibility — we can verify our application-layer metrics against raw network behavior."*
+
+> **Note:** The `results.csv` data was generated on the Asus. If Tab 1–3 show "no data", copy `data/results.csv` from the Asus to the Mac's `data/` folder (AirDrop or shared folder), then refresh the dashboard.
+
+---
+
+### Step 10: Revert config.yaml After the Demo (💻 Asus)
+
+After the demo, change `server_ip` back to localhost on the Asus so single-device mode works again:
+
+```yaml
+server_ip: "127.0.0.1"
+```
+
+---
+
+### Troubleshooting
+
+| Problem | Solution |
+|---|---|
+| `Connection refused` on TCP client | Check TCP server is running on the Mac and firewall allows port 5000. |
+| UDP packets all showing as `*** LOST ***` | Firewall is blocking UDP. Allow port 5000/UDP on the Mac. |
+| `ping` works but experiments fail | Ensure `config.yaml` on the Asus has the correct Mac IP and both server scripts are running on the Mac. |
+| Very high RTT (>100ms) on same Wi-Fi | Normal on a congested college Wi-Fi. Mention this as a real-world observation to faculty. |
+| `Address already in use` on Mac | Another process is using port 5000. Run `lsof -i :5000` on the Mac or change `server_port` in `config.yaml` on **both** laptops. |
+| Wireshark shows no packets on Mac | Make sure you selected the correct interface (`en0` for Wi-Fi). Also check that the capture filter (if used) matches the actual port. |
+| Wireshark asks for permission on Mac | Go to **System Settings → Privacy & Security → Full Disk Access** (or run `sudo chmod +x /dev/bpf*` once). Wireshark also installs a helper tool — say Yes to the installer prompt. |
+| PCAP upload in Tab 4 shows no packets | Make sure the **Port Filter** matches the port used (5000). Set it to `0` to show all traffic and verify the capture file is not empty. |
+
+---
+
 ## Expected Q&A Questions from Faculty & Answers
 
 **Q1: How do you measure RTT accurately without clock synchronization issues?**
@@ -196,6 +405,15 @@ python3 analyzer/pcap_parser.py --generate-sample
 
 **Q5: How does the Wireshark PCAP Inspector work without root/sudo permissions?**
 > *Answer:* The parser operates offline using Scapy to parse exported `.pcap` or `.pcapng` capture files recorded via Wireshark or generated by our synthetic capture module. This avoids requiring elevated kernel packet-sniffing permissions (`sudo`) while providing full packet header, flag, and handshake visibility.
+
+**Q6: Why are the RTT values different when testing across two laptops vs localhost?**
+> *Answer:* On localhost (`127.0.0.1`), packets never leave the kernel — they are looped back in the network stack with near-zero latency. When we test across two laptops on Wi-Fi, packets traverse the real wireless medium: they go through the Wi-Fi radio, the access point, and back. This adds real-world latency from wireless medium access, buffering, interference, and physical propagation — giving us meaningful RTT, jitter, and loss measurements that reflect how TCP and UDP actually behave in a production network.
+
+**Q7: How does the experiment runner know whether to start the server automatically or expect a remote server?**
+> *Answer:* The runner checks `server_ip` in `config.yaml`. If it is `127.0.0.1` or `localhost`, it spawns the server as a subprocess automatically. If it is any other IP (like a LAN address such as `192.168.1.42`), it assumes the server is already running on that remote machine and connects directly — this is how the two-laptop demo works.
+
+**Q8: Why do you capture Wireshark on the Mac (server) instead of the Asus (client)?**
+> *Answer:* Capturing on the server-side Mac lets us see the complete traffic picture from the receiving end — including the TCP 3-way handshake initiation arriving from the Asus, the server's SYN/ACK response, and the full echo traffic in both directions. It also demonstrates that we can verify our application-layer metrics against raw packet-level data captured independently on a different machine. You could capture on either side (or both) — the traffic is symmetric for an echo server — but having it on the Mac keeps the Asus focused on running the benchmark without Wireshark competing for CPU/network resources.
 
 ---
 *Created for NetPulse Demonstration & Evaluation.*
