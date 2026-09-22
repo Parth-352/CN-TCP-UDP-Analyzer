@@ -72,10 +72,10 @@ Measures 5 core network parameters:
 
 ### 5. Wireshark PCAP Analyzer (`analyzer/pcap_parser.py`)
 * Reads `.pcap` / `.pcapng` capture files using **Scapy**.
-* Filters for traffic on target experiment port (default `5000`) or inspects all traffic when port is set to `0`.
+* Filters for traffic on target experiment port (default `5001`) or inspects all traffic when port is set to `0`.
 * Displays per-packet headers, packet sizes, and TCP flags (`SYN`, `ACK`, `PSH`, `FIN`).
 * Tracks and counts completed TCP 3-way handshakes (`SYN` $\rightarrow$ `SYN/ACK` $\rightarrow$ `ACK`).
-* Includes `--generate-sample` CLI flag to generate a synthetic binary capture file for instant offline demonstration.
+* Analyzes `.pcap` and `.pcapng` files exported from Wireshark through the dashboard or CLI.
 
 ### 6. Smart Protocol Recommendation Engine (`recommender/`)
 * **Workload Profiles (`recommender/profiles.py`):** Defines 6 workload profiles with normalized sensitivity weights ($0.0$ to $1.0$):
@@ -131,8 +131,8 @@ streamlit run dashboard/app.py
    - Highlight the **Combined Performance Dashboard Grid** showing all metrics simultaneously.
 3. **Show Tab 4 ("Wireshark PCAP Inspector"):**
    - Demonstrate dragging and dropping a custom `.pcap` / `.pcapng` file into the UI file uploader.
-   - Adjust the **Port Filter** input (`0` to view all network traffic, or `5000` for experiment traffic).
-   - Click **"Generate Sample PCAP"** to generate synthetic capture data instantly from within the web interface.
+   - Adjust the **Port Filter** input (`0` to view all network traffic, or `5001` for experiment traffic).
+   - Upload the Wireshark `.pcap` or `.pcapng` file in the PCAP uploader.
    - Review summary metrics (Total Packets, TCP vs UDP count, Average packet sizes, Complete TCP Handshakes).
 4. **Demonstrate Sidebar Controls:**
    - **Start Fresh Benchmark:** Wipes old CSV records and executes a fresh benchmark suite.
@@ -156,8 +156,8 @@ Click on **Tab 3 ("Smart Protocol Recommender")**:
 ### Step 5: Wireshark PCAP & Packet Analysis Demo (2 minutes)
 Open a new terminal and run the offline PCAP analyzer CLI:
 ```bash
-# Analyze custom capture or generated sample via CLI
-python3 analyzer/pcap_parser.py --generate-sample
+# Analyze a custom Wireshark capture via CLI
+python3 analyzer/pcap_parser.py path/to/capture.pcap
 ```
 * **What to say:**
   > *"To analyze protocol behavior at the packet capture layer, NetPulse includes a Scapy-based Wireshark parser accessible via CLI and integrated into our Streamlit dashboard. Here we inspect packet headers, flag combinations, and handshake sequences."*
@@ -175,7 +175,7 @@ python3 analyzer/pcap_parser.py --generate-sample
 | **Run Experiments** | `python3 run_experiments.py` |
 | **Run Fresh Experiments** | `python3 run_experiments.py --fresh` |
 | **Launch Dashboard** | `streamlit run dashboard/app.py` |
-| **Run Wireshark Analyzer** | `python3 analyzer/pcap_parser.py --generate-sample` |
+| **Run Wireshark Analyzer** | `python3 analyzer/pcap_parser.py path/to/capture.pcap` |
 | **Inspect Custom PCAP** | `python3 analyzer/pcap_parser.py path/to/capture.pcap` |
 
 ---
@@ -196,7 +196,7 @@ This demonstrates real network latency, jitter, and loss instead of loopback-onl
 - Both laptops (Mac & Asus) are connected to the **same Wi-Fi network** (e.g., your college Wi-Fi or a mobile hotspot).
 - Both laptops have the NetPulse project cloned/copied with Python 3 and all dependencies installed (`pip install -r requirements.txt`).
 - **Wireshark** is installed on the Mac (download from [wireshark.org](https://www.wireshark.org/download.html)). You will use it to live-capture the benchmark traffic on the server side.
-- No firewall is blocking port **5000** (or whichever port you use) on the Mac.
+- No firewall is blocking port **5001** (or whichever port you use) on the Mac.
 
 ### Step 1: Find the Mac's LAN IP (🍎 Mac)
 
@@ -229,7 +229,7 @@ python3 tcp/server.py
 ```
 You should see:
 ```
-[TCP Server] Listening on 0.0.0.0:5000
+[TCP Server] Listening on 0.0.0.0:5001
 ```
 
 **Terminal 2 — UDP Server:**
@@ -239,7 +239,7 @@ python3 udp/server.py
 ```
 You should see:
 ```
-[UDP Server] Listening on 0.0.0.0:5000
+[UDP Server] Listening on 0.0.0.0:5001
 ```
 
 > **Note:** Both servers already bind to `0.0.0.0` (all network interfaces) by default via `config.yaml`, so they accept connections from the Asus over the LAN.
@@ -283,9 +283,9 @@ Open **Wireshark** on the Mac **before** running the benchmark so it captures al
 3. Packets will start scrolling immediately — that's fine, the real traffic comes when you run the benchmark.
 4. *(Optional but recommended)* To reduce noise, apply a **capture filter** before starting:
    ```
-   port 5000
+   port 5001
    ```
-   This captures only traffic on port 5000 — ignoring all background Wi-Fi traffic.
+   This captures only traffic on port 5001 — ignoring all background Wi-Fi traffic.
 
 > **Leave Wireshark running.** You will stop it after the benchmark finishes.
 
@@ -324,7 +324,7 @@ Once the benchmark finishes:
 
 > **Tip:** If you didn't use a capture filter earlier, you can apply a **display filter** before saving to keep only the relevant traffic — go to **File → Export Specified Packets…** and choose "Displayed" to export only the filtered packets:
 > ```
-> tcp.port == 5000 || udp.port == 5000
+> tcp.port == 5001 || udp.port == 5001
 > ```
 
 ---
@@ -344,7 +344,7 @@ Open the dashboard in the browser on the Mac (`http://localhost:8501`) and walk 
 3. **Tab 3 — Protocol Recommender:** The recommendations are now based on real network data rather than loopback-ideal conditions.
 4. **Tab 4 — Wireshark PCAP Inspector:**
    - Click **"Upload Custom PCAP File"** and select the `capture.pcap` you saved from Wireshark in Step 8.
-   - Set the **Port Filter** to `5000` (should be the default).
+   - Set the **Port Filter** to `5001` (should be the default).
    - Walk faculty through the results:
      - **Total Packets Captured** — how many packets flowed during the benchmark.
      - **TCP Packets vs UDP Datagrams** — the protocol distribution pie chart.
@@ -378,14 +378,14 @@ server_ip: "127.0.0.1"
 
 | Problem | Solution |
 |---|---|
-| `Connection refused` on TCP client | Check TCP server is running on the Mac and firewall allows port 5000. |
-| UDP packets all showing as `*** LOST ***` | Firewall is blocking UDP. Allow port 5000/UDP on the Mac. |
+| `Connection refused` on TCP client | Check TCP server is running on the Mac and firewall allows port 5001. |
+| UDP packets all showing as `*** LOST ***` | Firewall is blocking UDP. Allow port 5001/UDP on the Mac. |
 | `ping` works but experiments fail | Ensure `config.yaml` on the Asus has the correct Mac IP and both server scripts are running on the Mac. |
 | Very high RTT (>100ms) on same Wi-Fi | Normal on a congested college Wi-Fi. Mention this as a real-world observation to faculty. |
-| `Address already in use` on Mac | Another process is using port 5000. Run `lsof -i :5000` on the Mac or change `server_port` in `config.yaml` on **both** laptops. |
+| `Address already in use` on Mac | Another process is using port 5001. Run `lsof -i :5001` on the Mac or change `server_port` in `config.yaml` on **both** laptops. |
 | Wireshark shows no packets on Mac | Make sure you selected the correct interface (`en0` for Wi-Fi). Also check that the capture filter (if used) matches the actual port. |
 | Wireshark asks for permission on Mac | Go to **System Settings → Privacy & Security → Full Disk Access** (or run `sudo chmod +x /dev/bpf*` once). Wireshark also installs a helper tool — say Yes to the installer prompt. |
-| PCAP upload in Tab 4 shows no packets | Make sure the **Port Filter** matches the port used (5000). Set it to `0` to show all traffic and verify the capture file is not empty. |
+| PCAP upload in Tab 4 shows no packets | Make sure the **Port Filter** matches the port used (5001). Set it to `0` to show all traffic and verify the capture file is not empty. |
 
 ---
 

@@ -37,14 +37,53 @@ st.title("NetPulse — TCP vs UDP Performance Analyzer")
 st.caption("Real-Time Application-Layer Transport Protocol Metrics, Packet Capture & Recommendation Engine")
 
 
-def load_data():
-    """Load results.csv into a pandas DataFrame."""
-    if not os.path.exists(CSV_PATH):
-        return None
+def load_data(uploaded_file=None):
+    """Load the uploaded results CSV, or fall back to the saved dataset."""
     try:
-        df = pd.read_csv(CSV_PATH)
+        if uploaded_file is not None:
+            df = pd.read_csv(uploaded_file)
+        elif os.path.exists(CSV_PATH):
+            df = pd.read_csv(CSV_PATH)
+        else:
+            return None
+
         if df.empty:
             return None
+
+        required_columns = {
+            "Protocol",
+            "PacketSize",
+            "TransmissionTime",
+            "AvgRTT",
+            "Throughput",
+            "PacketLoss",
+            "Jitter",
+        }
+        missing_columns = sorted(required_columns - set(df.columns))
+        if missing_columns:
+            st.error(
+                "The results CSV is missing required columns: "
+                + ", ".join(missing_columns)
+            )
+            return None
+
+        for column in required_columns - {"Protocol"}:
+            df[column] = pd.to_numeric(df[column], errors="coerce")
+        df["Protocol"] = df["Protocol"].astype(str).str.upper().str.strip()
+        df = df[df["Protocol"].isin(["TCP", "UDP"])].dropna(
+            subset=[
+                "PacketSize",
+                "TransmissionTime",
+                "AvgRTT",
+                "Throughput",
+                "PacketLoss",
+                "Jitter",
+            ]
+        )
+        if df.empty:
+            st.error("The results CSV has no valid TCP or UDP metric rows.")
+            return None
+
         return df
     except Exception as e:
         st.error(f"Failed to read dataset: {e}")
@@ -122,7 +161,22 @@ if st.sidebar.button(
 # ---------------------------------------------------------
 # Data Loading & Main Content
 # ---------------------------------------------------------
-df = load_data()
+st.sidebar.subheader("Data Source")
+uploaded_results = st.sidebar.file_uploader(
+    "Upload custom results CSV",
+    type=["csv"],
+    help=(
+        "Upload a benchmark CSV with Protocol, PacketSize, TransmissionTime, "
+        "AvgRTT, Throughput, PacketLoss, and Jitter columns."
+    ),
+)
+
+if uploaded_results is not None:
+    st.sidebar.success(f"Using uploaded data: {uploaded_results.name}")
+else:
+    st.sidebar.caption("Using the saved dataset: data/results.csv")
+
+df = load_data(uploaded_results)
 
 tab1, tab2, tab3, tab4 = st.tabs([
     "Metric Tables & Comparison",
@@ -384,7 +438,7 @@ with tab4:
     st.caption("Offline Scapy-based Packet Capture Parsing & TCP 3-Way Handshake Detection")
 
     cfg = load_config()
-    default_port = cfg.get("server_port", 5000)
+    default_port = cfg.get("server_port", 5001)
 
     # Controls Layout: Upload & Port Filter
     ctrl_col1, ctrl_col2 = st.columns([3, 1])

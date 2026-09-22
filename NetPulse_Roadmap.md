@@ -253,7 +253,7 @@ parse vs scripted tshark capture (why offline parsing was chosen) and
 update PROGRESS.md.
 ```
 
-Manual step you do yourself (tell Claude Code this is expected, don't ask it to automate): open Wireshark, filter `tcp.port == 5000 or udp.port == 5000`, start capture, run `run_experiments.py`, stop capture, File → Export Specified Packets → `data/capture.pcap`.
+Manual step: open Wireshark, filter `tcp.port == 5001 or udp.port == 5001`, start capture, run `run_experiments.py`, stop capture, File → Export Specified Packets → `data/capture.pcap`.
 
 ---
 

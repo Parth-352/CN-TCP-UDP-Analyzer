@@ -26,7 +26,7 @@
 - **Wireshark PCAP Analyzer (`analyzer/`):**
   - Offline Scapy-based `.pcap` / `.pcapng` parser.
   - Detects TCP 3-way handshakes (`SYN` -> `SYN/ACK` -> `ACK`), flag breakdown, and packet sizes.
-  - Includes `--generate-sample` synthetic PCAP generator.
+  - Supports `.pcap` and `.pcapng` files exported from Wireshark.
 
 - **Smart Protocol Recommender (`recommender/`):**
   - Rule-based multi-criteria recommendation engine for 6 workload profiles (`Gaming`, `VideoCall`, `Streaming`, `FileTransfer`, `WebAPI`, `IoT`).
@@ -65,7 +65,7 @@ Open `http://localhost:8501` in your browser.
 ### 5. Run Wireshark PCAP Analyzer
 ```bash
 # Generate sample capture and analyze
-python3 analyzer/pcap_parser.py --generate-sample
+python3 analyzer/pcap_parser.py path/to/capture.pcap
 
 # Analyze your custom capture file from Wireshark
 python3 analyzer/pcap_parser.py path/to/your_capture.pcap

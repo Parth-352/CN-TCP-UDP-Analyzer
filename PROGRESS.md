@@ -66,7 +66,7 @@
   - Extracts per-packet metadata: Protocol, Src/Dst IP & Port, Packet Size, TCP Flags, Seq/Ack numbers, UDP lengths
   - Automatically detects full TCP 3-way handshakes (`SYN` -> `SYN/ACK` -> `ACK`)
   - Displays summary statistics: Total TCP/UDP packet counts, average packet sizes, handshake counts
-  - Built-in `--generate-sample` synthetic PCAP generator for testing and standalone demonstration
+  - Wireshark `.pcap` and `.pcapng` upload and offline parsing support
 - Installed `scapy` dependency
 - Tested parsing on sample PCAP: detected TCP handshakes and UDP datagrams accurately
 

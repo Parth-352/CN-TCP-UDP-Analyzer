@@ -29,7 +29,7 @@ def load_config() -> dict:
     if os.path.exists(config_path):
         with open(config_path) as f:
             return yaml.safe_load(f)
-    return {"server_port": 5000}
+    return {"server_port": 5001}
 
 
 def format_flags(tcp_layer) -> str:
@@ -195,7 +195,7 @@ def main():
     args = parser.parse_args()
 
     cfg = load_config()
-    target_port = cfg.get("server_port", 5000)
+    target_port = cfg.get("server_port", 5001)
 
     parse_pcap(args.pcap_file, target_port)
 
