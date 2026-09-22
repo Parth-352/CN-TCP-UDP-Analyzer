@@ -4,7 +4,7 @@
 server_ip: "127.0.0.1"
 # server_bind: IP the SERVER listens on (0.0.0.0 = accept from all interfaces, including LAN devices)
 server_bind: "0.0.0.0"
-server_port: 5000
+server_port: 5001
 
 # Packet sizes to test (in bytes)
 packet_sizes:
