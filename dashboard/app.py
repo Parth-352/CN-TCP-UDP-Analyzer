@@ -22,7 +22,7 @@ sys.path.insert(0, ROOT)
 
 from recommender.profiles import PROFILES
 from recommender.engine import recommend
-from analyzer.pcap_parser import parse_pcap_data, load_config
+from analyzer.pcap_parser import parse_pcap_data, pcap_to_metrics, load_config
 
 CSV_PATH = os.path.join(ROOT, "data", "results.csv")
 RUNNER_PATH = os.path.join(ROOT, "run_experiments.py")
@@ -161,22 +161,9 @@ if st.sidebar.button(
 # ---------------------------------------------------------
 # Data Loading & Main Content
 # ---------------------------------------------------------
-st.sidebar.subheader("Data Source")
-uploaded_results = st.sidebar.file_uploader(
-    "Upload custom results CSV",
-    type=["csv"],
-    help=(
-        "Upload a benchmark CSV with Protocol, PacketSize, TransmissionTime, "
-        "AvgRTT, Throughput, PacketLoss, and Jitter columns."
-    ),
-)
-
-if uploaded_results is not None:
-    st.sidebar.success(f"Using uploaded data: {uploaded_results.name}")
-else:
-    st.sidebar.caption("Using the saved dataset: data/results.csv")
-
-df = load_data(uploaded_results)
+pcap_metrics_df = st.session_state.get("pcap_metrics_df")
+pcap_source_name = st.session_state.get("pcap_source_name")
+df = pcap_metrics_df if pcap_metrics_df is not None and not pcap_metrics_df.empty else None
 
 tab1, tab2, tab3, tab4 = st.tabs([
     "Metric Tables & Comparison",
@@ -189,9 +176,14 @@ tab1, tab2, tab3, tab4 = st.tabs([
 # TAB 1: Comparison Table View
 # ---------------------------------------------------------
 with tab1:
+    st.caption(
+        f"Data source: Tab 4 PCAP ({pcap_source_name})."
+        if pcap_source_name
+        else "Upload a PCAP in Tab 4 to populate this tab."
+    )
     if df is None:
-        st.warning("No experiment data found (`data/results.csv` missing or empty).")
-        st.info("Click **'Run Experiments'** in the sidebar to execute the benchmark suite.")
+        st.warning("No PCAP-derived data is available yet.")
+        st.info("Upload a Wireshark `.pcap` or `.pcapng` file in Tab 4.")
     else:
         st.subheader("Protocol Metric Comparison")
         latest_df = df.groupby(["Protocol", "PacketSize"], as_index=False).last()
@@ -245,8 +237,9 @@ with tab1:
 # TAB 2: Graphs View (Matplotlib)
 # ---------------------------------------------------------
 with tab2:
+    st.caption("Graphs use metrics derived from the PCAP uploaded in Tab 4.")
     if df is None:
-        st.warning("No experiment data available for graphing.")
+        st.warning("No PCAP-derived data is available for graphing.")
     else:
         st.subheader("Transport Protocol Visual Benchmarks")
         latest_df = df.groupby(["Protocol", "PacketSize"], as_index=False).last()
@@ -362,6 +355,7 @@ with tab2:
 # TAB 3: Protocol Recommendation Engine
 # ---------------------------------------------------------
 with tab3:
+    st.caption("Recommendations use metrics derived from the PCAP uploaded in Tab 4.")
     st.subheader("Rule-Based Protocol Recommendation Engine")
     st.write(
         "Select an application workload profile to analyze requirement sensitivity "
@@ -479,6 +473,14 @@ with tab4:
         st.markdown("Upload a Wireshark `.pcap` or `.pcapng` file using the uploader above, or save your Wireshark capture into `data/capture.pcap`.")
     else:
         pcap_df, summary = parse_pcap_data(pcap_target, target_port)
+        source_name = uploaded_pcap.name if uploaded_pcap is not None else os.path.basename(pcap_target)
+        source_key = f"{source_name}:{target_port}:{len(pcap_df)}"
+
+        if st.session_state.get("pcap_source_key") != source_key:
+            st.session_state["pcap_metrics_df"] = pcap_to_metrics(pcap_df)
+            st.session_state["pcap_source_name"] = source_name
+            st.session_state["pcap_source_key"] = source_key
+            st.rerun()
 
         if pcap_df.empty:
             port_msg = f"matching port {target_port}" if target_port > 0 else ""

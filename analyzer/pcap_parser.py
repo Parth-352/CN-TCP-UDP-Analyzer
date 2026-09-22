@@ -108,6 +108,7 @@ def parse_pcap_data(pcap_path: str, target_port: int):
                 "Source": f"{src_ip}:{tcp.sport}",
                 "Destination": f"{dst_ip}:{tcp.dport}",
                 "Length (B)": pkt_size,
+                "Timestamp": float(pkt.time),
                 "Flags": flags,
                 "Seq": tcp.seq,
                 "Ack": tcp.ack,
@@ -131,6 +132,7 @@ def parse_pcap_data(pcap_path: str, target_port: int):
                 "Source": f"{src_ip}:{udp.sport}",
                 "Destination": f"{dst_ip}:{udp.dport}",
                 "Length (B)": pkt_size,
+                "Timestamp": float(pkt.time),
                 "Flags": "N/A",
                 "Seq": "N/A",
                 "Ack": "N/A",
@@ -152,6 +154,46 @@ def parse_pcap_data(pcap_path: str, target_port: int):
     }
 
     return df, summary
+
+
+def pcap_to_metrics(packet_df: pd.DataFrame) -> pd.DataFrame:
+    """Convert parsed PCAP packets into dashboard metric rows."""
+    columns = [
+        "Protocol", "PacketSize", "Packets", "TransmissionTime", "AvgRTT",
+        "Throughput", "PacketLoss", "Jitter",
+    ]
+    if packet_df.empty:
+        return pd.DataFrame(columns=columns)
+
+    ordered_packets = packet_df.sort_values("Timestamp")
+    metric_rows = []
+    for (protocol, packet_size), group in packet_df.groupby(["Protocol", "Length (B)"]):
+        timestamps = group["Timestamp"].sort_values().to_numpy()
+        elapsed = max(float(timestamps[-1] - timestamps[0]), 0.000001)
+        intervals_ms = pd.Series(timestamps).diff().dropna() * 1000
+        rtt_samples = []
+        for _, packet in group.iterrows():
+            response = ordered_packets[
+                (ordered_packets["Protocol"] == protocol)
+                & (ordered_packets["Source"] == packet["Destination"])
+                & (ordered_packets["Destination"] == packet["Source"])
+                & (ordered_packets["Timestamp"] > packet["Timestamp"])
+            ]
+            if not response.empty:
+                rtt_samples.append((response.iloc[0]["Timestamp"] - packet["Timestamp"]) * 1000)
+
+        metric_rows.append({
+            "Protocol": protocol,
+            "PacketSize": int(packet_size),
+            "Packets": len(group),
+            "TransmissionTime": elapsed,
+            "AvgRTT": float(pd.Series(rtt_samples).mean()) if rtt_samples else 0.0,
+            "Throughput": (len(group) * packet_size * 8) / elapsed / 1_000_000,
+            "PacketLoss": 0.0,
+            "Jitter": float(intervals_ms.diff().abs().mean()) if len(intervals_ms) > 1 else 0.0,
+        })
+
+    return pd.DataFrame(metric_rows, columns=columns)
 
 
 def parse_pcap(pcap_path: str, target_port: int):
